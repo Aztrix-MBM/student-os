@@ -20,7 +20,18 @@ import { PrototypeHub } from './prototype/PrototypeHub';
 import { AddSubjectModal } from './components/AddSubjectModal';
 import { AddTaskModal } from './components/AddTaskModal';
 import { SettingsModal } from './components/SettingsModal';
-import { getMe, logoutUser, UserAuthResponse } from './lib/api';
+import {
+  getMe,
+  logoutUser,
+  UserAuthResponse,
+  fetchSubjects,
+  createSubject,
+  deleteSubject,
+  fetchTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+} from './lib/api';
 
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ScreenView>('dashboard');
@@ -66,7 +77,7 @@ export const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  // Check auth session on mount (/api/me)
+  // Check auth session on mount (/api/me) & load real student data
   useEffect(() => {
     let isMounted = true;
     const checkSession = async () => {
@@ -75,6 +86,32 @@ export const App: React.FC = () => {
         if (isMounted) {
           if (userRes) {
             setCurrentUser(userRes);
+            // Fetch backend subjects and tasks
+            const [apiSubs, apiTasks] = await Promise.all([fetchSubjects(), fetchTasks()]);
+            if (isMounted && apiSubs.length > 0) {
+              setSubjects(apiSubs.map(s => ({
+                id: s.id,
+                name: s.name,
+                code: s.code,
+                progress: 0,
+                completedTopics: 0,
+                totalTopics: s.topics_count || 15,
+                semester: s.semester || 'current',
+                iconType: 'chip',
+                colorTheme: (s.color_theme as any) || 'sky',
+              })));
+            }
+            if (isMounted && apiTasks.length > 0) {
+              setTasks(apiTasks.map(t => ({
+                id: t.id,
+                title: t.title,
+                subjectName: t.subject_name || 'General',
+                priority: t.priority >= 4 ? 'high' : t.priority >= 3 ? 'medium' : 'low',
+                dueDate: t.due_date ? new Date(t.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Flexible',
+                status: t.status as any,
+                estimatedMinutes: t.estimated_minutes,
+              })));
+            }
           } else {
             setCurrentUser(null);
           }
@@ -98,37 +135,74 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleToggleTask = (id: string) => {
+  const handleToggleTask = async (id: string) => {
+    const current = tasks.find((t) => t.id === id);
+    const newStatus = current?.status === 'completed' ? 'todo' : 'completed';
     setTasks((prev) =>
       prev.map((t) =>
         t.id === id
           ? {
               ...t,
-              status: t.status === 'completed' ? 'todo' : 'completed',
+              status: newStatus,
             }
           : t
       )
     );
+    if (currentUser && id.startsWith('tsk_')) {
+      await updateTask(id, { status: newStatus });
+    }
   };
 
-  const handleDeleteTask = (id: string) => {
+  const handleDeleteTask = async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    if (currentUser && id.startsWith('tsk_')) {
+      await deleteTask(id);
+    }
   };
 
-  const handleAddTask = (newTask: Omit<TaskItem, 'id'>) => {
+  const handleAddTask = async (newTask: Omit<TaskItem, 'id'>) => {
+    const tempId = `tsk_${Date.now()}`;
     const task: TaskItem = {
       ...newTask,
-      id: `task_${Date.now()}`,
+      id: tempId,
     };
     setTasks((prev) => [task, ...prev]);
+
+    if (currentUser) {
+      const matchedSubject = subjects.find((s) => s.name === newTask.subjectName);
+      const apiTask = await createTask({
+        title: newTask.title,
+        subject_id: matchedSubject?.id.startsWith('sub_') ? matchedSubject.id : undefined,
+        priority: newTask.priority === 'high' ? 5 : newTask.priority === 'medium' ? 3 : 1,
+        status: newTask.status,
+        due_date: newTask.dueDate && newTask.dueDate !== 'Flexible' ? new Date(newTask.dueDate).toISOString() : undefined,
+        estimated_minutes: newTask.estimatedMinutes,
+      });
+      if (apiTask) {
+        setTasks((prev) => prev.map((t) => (t.id === tempId ? { ...t, id: apiTask.id } : t)));
+      }
+    }
   };
 
-  const handleAddSubject = (newSub: Omit<Subject, 'id'>) => {
+  const handleAddSubject = async (newSub: Omit<Subject, 'id'>) => {
+    const tempId = `sub_${Date.now()}`;
     const subject: Subject = {
       ...newSub,
-      id: `sub_${Date.now()}`,
+      id: tempId,
     };
     setSubjects((prev) => [...prev, subject]);
+
+    if (currentUser) {
+      const apiSub = await createSubject({
+        name: newSub.name,
+        code: newSub.code,
+        semester: newSub.semester,
+        color_theme: newSub.colorTheme,
+      });
+      if (apiSub) {
+        setSubjects((prev) => prev.map((s) => (s.id === tempId ? { ...s, id: apiSub.id } : s)));
+      }
+    }
   };
 
   const handleRateTopic = (topicId: string, level: TopicLevel) => {

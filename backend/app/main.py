@@ -2,8 +2,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers.health import router as health_router
-from app.routers.auth import router as auth_router
+from app.routers import (
+    health_router,
+    auth_router,
+    subjects_router,
+    exams_router,
+    tasks_router,
+)
 
 DEFAULT_INSECURE_SECRETS = [
     "student-os-super-secret-jwt-key-2026-phase-1",
@@ -59,6 +64,9 @@ app.add_middleware(
 # Include Routers
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(subjects_router)
+app.include_router(exams_router)
+app.include_router(tasks_router)
 
 
 @app.get("/")

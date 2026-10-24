@@ -34,7 +34,7 @@ export interface Subject {
   progress: number;
   completedTopics: number;
   totalTopics: number;
-  semester: 'current' | 'previous';
+  semester: 'current' | 'previous' | string;
   iconType: 'chip' | 'monitor' | 'network' | 'code' | 'math' | 'book';
   colorTheme: 'amber' | 'sky' | 'coral' | 'lavender' | 'mint';
 }

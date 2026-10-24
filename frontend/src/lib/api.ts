@@ -155,3 +155,211 @@ export async function logoutUser(): Promise<boolean> {
     return false;
   }
 }
+
+// ---------------------- PHASE 3 ACADEMIC CORE API CLIENT ----------------------
+
+export interface ApiSubject {
+  id: string;
+  user_id: string;
+  name: string;
+  code: string;
+  semester?: string;
+  color_theme: string;
+  created_at: string;
+  updated_at: string;
+  units_count: number;
+  topics_count: number;
+  exams_count: number;
+}
+
+export interface ApiExam {
+  id: string;
+  user_id: string;
+  subject_id: string;
+  subject_name?: string;
+  title: string;
+  exam_date: string;
+  total_marks: number;
+  type: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiTask {
+  id: string;
+  user_id: string;
+  subject_id?: string;
+  subject_name?: string;
+  title: string;
+  priority: number;
+  status: string;
+  due_date?: string;
+  estimated_minutes: number;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchSubjects(): Promise<ApiSubject[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/subjects`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function createSubject(data: {
+  name: string;
+  code: string;
+  semester?: string;
+  color_theme?: string;
+}): Promise<ApiSubject | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/subjects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteSubject(subjectId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/subjects/${subjectId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchExams(subjectId?: string): Promise<ApiExam[]> {
+  try {
+    const url = subjectId
+      ? `${API_BASE_URL}/api/exams?subject_id=${encodeURIComponent(subjectId)}`
+      : `${API_BASE_URL}/api/exams`;
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function createExam(data: {
+  subject_id: string;
+  title: string;
+  exam_date: string;
+  total_marks?: number;
+  type?: string;
+}): Promise<ApiExam | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/exams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteExam(examId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/exams/${examId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchTasks(filters?: { status?: string; subject_id?: string }): Promise<ApiTask[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.subject_id) params.append('subject_id', filters.subject_id);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+
+    const res = await fetch(`${API_BASE_URL}/api/tasks${qs}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function createTask(data: {
+  title: string;
+  subject_id?: string;
+  priority?: number;
+  status?: string;
+  due_date?: string;
+  estimated_minutes?: number;
+}): Promise<ApiTask | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function updateTask(taskId: string, updates: Partial<ApiTask>): Promise<ApiTask | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteTask(taskId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

@@ -48,4 +48,13 @@
     - When `TRUSTED_PROXY=False` (default in development), the client IP is read directly from `request.client.host`.
     - `X-Forwarded-For` is only parsed when `TRUSTED_PROXY=True` in production, preventing attackers from bypassing IP rate limits via spoofed request headers.
 
+## Decision 7: Multi-Tenant Data Isolation Strategy & Cross-User 404 Policy (Phase 3)
+- **Context:** Students share the same backend database for subjects, exams, and tasks. If Student B attempts to query, modify, or delete Student A's subject or task, standard REST APIs sometimes return `403 Forbidden`.
+- **Decision:** All resource lookup queries filter strictly by `user_id == current_user.id`. When a resource is not found OR belongs to another user, the API uniformly returns **`404 Not Found`** (`{"detail": "Subject not found"}` or `"Exam not found"` or `"Task not found"`).
+- **Rationale:**
+  - Returning `403 Forbidden` leaks information by confirming that a resource with that ID actually exists in the database (an ID enumeration vulnerability).
+  - Returning `404 Not Found` completely conceals resource existence, ensuring true zero-knowledge privacy between engineering students.
+  - Cascade Deletion Policy: Deleting a subject cascades and deletes its internal units, topics, and exams, but tasks attached to that subject have `subject_id` set to `NULL` (`ondelete="SET NULL"`), ensuring students never lose personal assignment notes if a subject is reorganized.
+
+
 

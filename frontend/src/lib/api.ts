@@ -605,3 +605,91 @@ export async function fetchStudySessions(limit: number = 20): Promise<ApiStudySe
     return [];
   }
 }
+
+// ---------------------- PHASE 7 TODAY STUDY PLANNER API CLIENT ----------------------
+
+export interface ApiReasonItem {
+  label: string;
+  value: string;
+}
+
+export interface ApiPlanItem {
+  id: string;
+  title: string;
+  type: 'task' | 'topic';
+  minutes: number;
+  score: number;
+  reasons: ApiReasonItem[];
+  subject_id?: string;
+  subject_name?: string;
+  completed?: boolean;
+  recommendation_id?: string;
+}
+
+export interface ApiWorkloadSummary {
+  status: 'comfortable' | 'busy' | 'overloaded';
+  load_ratio: number;
+  required_minutes: number;
+  available_minutes: number;
+  message: string;
+}
+
+export interface ApiUpcomingExam {
+  id: string;
+  title: string;
+  subject_name: string;
+  exam_date: string;
+  days_to_exam: number;
+  type: string;
+}
+
+export interface ApiTodayPlan {
+  next_best_action?: ApiPlanItem;
+  plan: ApiPlanItem[];
+  deferred: ApiPlanItem[];
+  workload: ApiWorkloadSummary;
+  upcoming_exams: ApiUpcomingExam[];
+  student_daily_minutes: number;
+  date: string;
+  candidate_count: number;
+}
+
+export async function fetchTodayPlan(): Promise<ApiTodayPlan | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/today`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function acceptRecommendation(recId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/recommendations/${recId}/accept`, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function dismissRecommendation(recId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/recommendations/${recId}/dismiss`, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

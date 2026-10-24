@@ -5,6 +5,7 @@ from app.routers.exams import router as exams_router
 from app.routers.tasks import router as tasks_router
 from app.routers.syllabus import router as syllabus_router
 from app.routers.learning import router as learning_router
+from app.routers.today import router as today_router
 
 __all__ = [
     "health_router",
@@ -14,4 +15,5 @@ __all__ = [
     "tasks_router",
     "syllabus_router",
     "learning_router",
+    "today_router",
 ]

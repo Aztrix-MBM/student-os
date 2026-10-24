@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
@@ -10,8 +10,25 @@ import {
   MoreVertical,
   Flame,
   CheckSquare,
+  AlertCircle,
+  X,
+  ChevronRight,
+  GraduationCap,
+  TrendingUp,
+  RotateCcw,
+  Check,
 } from 'lucide-react';
 import { ScreenView, ScheduleItem, UserProfile } from '../types';
+import {
+  fetchTodayPlan,
+  acceptRecommendation,
+  dismissRecommendation,
+  updateTask,
+  submitTopicReview,
+  ApiTodayPlan,
+  ApiPlanItem,
+  ApiUpcomingExam,
+} from '../lib/api';
 
 interface DashboardViewProps {
   user: UserProfile;
@@ -44,9 +61,109 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const currentHour = today.getHours();
   const greeting = currentHour < 12 ? 'Good Morning' : currentHour < 17 ? 'Good Afternoon' : 'Good Evening';
 
+  // Phase 7 Today Plan Live State
+  const [todayPlan, setTodayPlan] = useState<ApiTodayPlan | null>(null);
+  const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(true);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [completedPlanIds, setCompletedPlanIds] = useState<Set<string>>(new Set());
+  const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string | null>(null);
+
+  // Fetch live Today Plan from backend
+  const loadPlan = async () => {
+    try {
+      setIsLoadingPlan(true);
+      const plan = await fetchTodayPlan();
+      if (plan) {
+        setTodayPlan(plan);
+      }
+    } catch {
+      // Graceful fallback to prop schedule
+    } finally {
+      setIsLoadingPlan(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPlan();
+  }, []);
+
+  // Handle recommendation dismiss
+  const handleDismissRec = async (recId: string, itemId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDismissedIds((prev) => new Set(prev).add(itemId));
+    await dismissRecommendation(recId);
+  };
+
+  // Handle recommendation accept
+  const handleAcceptRec = async (recId: string, _itemId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await acceptRecommendation(recId);
+    setReviewSuccessMsg('Recommendation accepted into your priority queue!');
+    setTimeout(() => setReviewSuccessMsg(null), 3000);
+  };
+
+  // Handle marking a plan item completed (Task completion or Topic review)
+  const handleTogglePlanItem = async (item: ApiPlanItem) => {
+    const isCurrentlyDone = completedPlanIds.has(item.id);
+    const updated = new Set(completedPlanIds);
+
+    if (isCurrentlyDone) {
+      updated.delete(item.id);
+    } else {
+      updated.add(item.id);
+    }
+    setCompletedPlanIds(updated);
+
+    if (item.type === 'task' && item.id.startsWith('tsk_')) {
+      await updateTask(item.id, { status: isCurrentlyDone ? 'todo' : 'completed' });
+    } else if (item.type === 'topic' && !isCurrentlyDone) {
+      // Mark topic reviewed with 'good' rating
+      await submitTopicReview(item.id, 'good', 'okay');
+      setReviewSuccessMsg(`Topic "${item.title}" reviewed! Retention stability updated.`);
+      setTimeout(() => setReviewSuccessMsg(null), 3500);
+    }
+  };
+
+  // Filter out any dismissed items
+  const activePlanItems = (todayPlan?.plan || []).filter((item) => !dismissedIds.has(item.id));
+  const activeDeferredItems = (todayPlan?.deferred || []).filter((item) => !dismissedIds.has(item.id));
+  const nba = todayPlan?.next_best_action && !dismissedIds.has(todayPlan.next_best_action.id)
+    ? todayPlan.next_best_action
+    : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }} className="animate-fade-in">
-      {/* Hero Welcome Banner Card matching reference panel 4 */}
+      {/* Toast banner for quick feedback */}
+      {reviewSuccessMsg && (
+        <div
+          className="clay-card-flat animate-fade-in"
+          style={{
+            padding: '12px 20px',
+            backgroundColor: 'var(--mint-bg)',
+            color: 'var(--mint-text)',
+            border: '1.5px solid var(--mint-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderRadius: '16px',
+            fontSize: '13px',
+            fontWeight: 700,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckCircle2 size={18} color="#179354" />
+            <span>{reviewSuccessMsg}</span>
+          </div>
+          <button
+            onClick={() => setReviewSuccessMsg(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mint-text)' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Hero Welcome Banner Card */}
       <div
         className="clay-card"
         style={{
@@ -105,39 +222,113 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        {/* Date Clay Badge */}
-        <div
-          className="clay-card-flat"
-          style={{
-            padding: '12px 20px',
-            borderRadius: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            position: 'relative',
-            zIndex: 2,
-          }}
-        >
+        {/* Right Badges: Date & Workload Indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', position: 'relative', zIndex: 2 }}>
+          {/* Workload Status Badge (Phase 7 Specification) */}
+          {todayPlan?.workload && (
+            <div
+              className="clay-card-flat"
+              style={{
+                padding: '12px 18px',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                border: `1.5px solid ${
+                  todayPlan.workload.status === 'overloaded'
+                    ? 'var(--coral-border)'
+                    : todayPlan.workload.status === 'busy'
+                    ? 'var(--amber-border)'
+                    : 'var(--mint-border)'
+                }`,
+                backgroundColor:
+                  todayPlan.workload.status === 'overloaded'
+                    ? 'var(--coral-bg)'
+                    : todayPlan.workload.status === 'busy'
+                    ? 'var(--amber-bg)'
+                    : 'var(--mint-bg)',
+              }}
+            >
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '12px',
+                  backgroundColor:
+                    todayPlan.workload.status === 'overloaded'
+                      ? '#E3512B'
+                      : todayPlan.workload.status === 'busy'
+                      ? '#D97706'
+                      : '#179354',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {todayPlan.workload.status === 'overloaded' ? (
+                  <AlertCircle size={20} />
+                ) : todayPlan.workload.status === 'busy' ? (
+                  <Clock size={20} />
+                ) : (
+                  <TrendingUp size={20} />
+                )}
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    textTransform: 'capitalize',
+                    color:
+                      todayPlan.workload.status === 'overloaded'
+                        ? 'var(--coral-text)'
+                        : todayPlan.workload.status === 'busy'
+                        ? 'var(--amber-text)'
+                        : 'var(--mint-text)',
+                  }}
+                >
+                  Workload: {todayPlan.workload.status}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {todayPlan.workload.required_minutes}m required / {todayPlan.workload.available_minutes}m target
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Date Clay Badge */}
           <div
+            className="clay-card-flat"
             style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '12px',
-              backgroundColor: 'var(--amber-bg)',
-              color: 'var(--amber-text)',
+              padding: '12px 20px',
+              borderRadius: '20px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '12px',
             }}
           >
-            <CalendarIcon size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>
-              {dayName}
+            <div
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--amber-bg)',
+                color: 'var(--amber-text)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <CalendarIcon size={20} />
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
-              {formattedDate}
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {dayName}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                {formattedDate}
+              </div>
             </div>
           </div>
         </div>
@@ -186,7 +377,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           style={{ padding: '20px 22px', cursor: 'pointer' }}
         >
           <div style={{ fontSize: '32px', fontWeight: 800, color: '#2A79E2', lineHeight: 1 }}>
-            2
+            {todayPlan?.upcoming_exams ? todayPlan.upcoming_exams.length : 2}
           </div>
           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '8px' }}>
             Upcoming Exams
@@ -196,59 +387,184 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Metric 4: Overall Progress */}
         <div
           className="clay-card-flat"
-          onClick={() => onNavigate('analytics')}
+          onClick={() => onNavigate('readiness')}
           style={{ padding: '20px 22px', cursor: 'pointer' }}
         >
           <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--mint-text)', lineHeight: 1 }}>
-            78%
+            {todayPlan?.candidate_count ? `${Math.min(100, Math.round((completedPlanIds.size / Math.max(1, activePlanItems.length)) * 100))}%` : '78%'}
           </div>
           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '8px' }}>
-            Overall Progress
+            Today's Plan Done
           </div>
         </div>
       </div>
 
-      {/* Hero "Next Best Action" Card (from BUILD_GUIDE.md Section 6.4) */}
-      <div
-        className="clay-card"
-        style={{
-          padding: '20px 24px',
-          borderLeft: '5px solid #0F766E',
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px',
-        }}
-      >
-        <div style={{ maxWidth: '640px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span
-              className="clay-pill-mint"
-              style={{ fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '9999px' }}
-            >
-              Next Best Action
-            </span>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Estimated: 45 min</span>
-          </div>
-          <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Revise AVL Tree Rotations & Deletions (Data Structures)
-          </h3>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            <strong>Why:</strong> Internal exam in 5 days • Topic retention score dropped to 42% (below 70% threshold) • High exam weightage unit.
-          </p>
-        </div>
-
-        <button
-          onClick={() => onNavigate('readiness')}
-          className="clay-btn clay-btn-dark"
-          style={{ height: '42px', padding: '0 20px', fontSize: '13px' }}
+      {/* Hero "Next Best Action" Card (BUILD_GUIDE.md Section 6.4 & Phase 7) */}
+      {nba ? (
+        <div
+          className="clay-card"
+          style={{
+            padding: '22px 26px',
+            borderLeft: '6px solid #0F766E',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '20px',
+            position: 'relative',
+          }}
         >
-          Start Session <ArrowRight size={15} />
-        </button>
-      </div>
+          <div style={{ maxWidth: '680px', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <span
+                className="clay-pill-mint"
+                style={{ fontSize: '11px', fontWeight: 800, padding: '3px 10px', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.4px' }}
+              >
+                Next Best Action
+              </span>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Clock size={13} /> {nba.minutes} min
+              </span>
+              {nba.subject_name && (
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: 'var(--sky-text)',
+                    backgroundColor: 'var(--sky-bg)',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                  }}
+                >
+                  {nba.subject_name}
+                </span>
+              )}
+            </div>
 
-      {/* Two Columns: Schedule & Quick Actions matching reference panel 4 */}
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: '4px 0' }}>
+              {nba.title}
+            </h3>
+
+            {/* "Why" Human-readable reasons list */}
+            {nba.reasons && nba.reasons.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+                {nba.reasons.map((r, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      fontSize: '12px',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(15, 118, 110, 0.09)',
+                      color: '#0F766E',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <strong>Why:</strong> {r.value}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {nba.recommendation_id && (
+              <>
+                <button
+                  onClick={(e) => handleDismissRec(nba.recommendation_id!, nba.id, e)}
+                  title="Dismiss recommendation"
+                  className="clay-card-flat"
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-clay)',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <X size={15} /> Dismiss
+                </button>
+                <button
+                  onClick={(e) => handleAcceptRec(nba.recommendation_id!, nba.id, e)}
+                  title="Accept into today's priority plan"
+                  className="clay-card-flat"
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    border: '1.5px solid var(--mint-border)',
+                    backgroundColor: 'var(--mint-bg)',
+                    color: 'var(--mint-text)',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Check size={15} /> Accept
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => {
+                if (nba.type === 'topic') {
+                  onNavigate('readiness');
+                } else {
+                  onNavigate('tasks');
+                }
+              }}
+              className="clay-btn clay-btn-dark"
+              style={{ height: '42px', padding: '0 20px', fontSize: '13px', fontWeight: 700 }}
+            >
+              {nba.type === 'topic' ? 'Start Revision' : 'Open Task'} <ArrowRight size={15} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Fallback / All Caught Up NBA */
+        <div
+          className="clay-card"
+          style={{
+            padding: '20px 24px',
+            borderLeft: '5px solid #179354',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span className="clay-pill-mint" style={{ fontSize: '11px', fontWeight: 800 }}>
+                Next Best Action
+              </span>
+              <span style={{ fontSize: '12px', color: 'var(--mint-text)', fontWeight: 600 }}>All Clear! 🎉</span>
+            </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              You're ahead of schedule today! No urgent topics or overdue tasks.
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              Feel free to revise any unreviewed topics or take a well-deserved rest.
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigate('readiness')}
+            className="clay-btn clay-btn-dark"
+            style={{ height: '40px', padding: '0 18px', fontSize: '13px' }}
+          >
+            Review Topics <ArrowRight size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Two Columns: Dynamic Today Study Plan & Quick Actions / Exams */}
       <div
         style={{
           display: 'grid',
@@ -256,261 +572,535 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           gap: '22px',
         }}
       >
-        {/* Left Column: Today's Schedule */}
+        {/* Left Column: Today's Generated Study Plan */}
         <div className="clay-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
             <div>
-              <h2 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                Today's Schedule
-              </h2>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                {schedule.filter((s) => s.completed).length} of {schedule.length} completed
-              </span>
-            </div>
-            <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-              <MoreVertical size={18} />
-            </button>
-          </div>
-
-          {/* Timeline List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
-            {schedule.map((item, index) => {
-              const isLast = index === schedule.length - 1;
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => onToggleSchedule(item.id)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    cursor: 'pointer',
-                    padding: '8px 10px',
-                    borderRadius: '12px',
-                    transition: 'background-color 0.15s ease',
-                  }}
-                  className="schedule-item-row"
-                >
-                  {/* Timeline status indicator */}
-                  <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-                    <div
-                      className="timeline-dot"
-                      style={{
-                        backgroundColor:
-                          item.dotColor === 'green'
-                            ? '#179354'
-                            : item.dotColor === 'blue'
-                            ? '#2A79E2'
-                            : item.dotColor === 'coral'
-                            ? '#E3512B'
-                            : '#64748B',
-                      }}
-                    />
-                    {!isLast && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: '6px',
-                          top: '14px',
-                          bottom: '-28px',
-                          width: '2px',
-                          backgroundColor: 'var(--border-subtle)',
-                        }}
-                      />
-                    )}
-                  </div>
-
-                  {/* Time Badge */}
-                  <div
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Today's Study Plan
+                </h2>
+                {todayPlan && (
+                  <span
                     style={{
-                      minWidth: '78px',
-                      fontSize: '12px',
+                      fontSize: '11px',
                       fontWeight: 700,
-                      color: 'var(--text-muted)',
-                      fontFamily: 'var(--font-mono)',
+                      padding: '2px 8px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--lavender-bg)',
+                      color: 'var(--lavender-text)',
                     }}
                   >
-                    {item.time}
-                  </div>
+                    AI Planned
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                {todayPlan
+                  ? `${completedPlanIds.size} of ${activePlanItems.length} items completed`
+                  : `${schedule.filter((s) => s.completed).length} of ${schedule.length} completed`}
+              </span>
+            </div>
 
-                  {/* Title & Category */}
-                  <div style={{ flex: 1 }}>
+            <button
+              onClick={loadPlan}
+              title="Refresh Today Plan"
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}
+            >
+              <RotateCcw size={17} />
+            </button>
+          </div>
+
+          {/* Dynamic Plan Items from API */}
+          {todayPlan ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {activePlanItems.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)' }}>
+                  <CheckCircle2 size={36} color="#179354" style={{ margin: '0 auto 10px auto' }} />
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    All done for today!
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                    Great consistency! Check Exam Readiness or relax.
+                  </div>
+                </div>
+              ) : (
+                activePlanItems.map((item) => {
+                  const isDone = completedPlanIds.has(item.id);
+                  return (
                     <div
+                      key={item.id}
+                      onClick={() => handleTogglePlanItem(item)}
+                      className="clay-card-flat schedule-item-row"
                       style={{
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)',
-                        textDecoration: item.completed ? 'line-through' : 'none',
+                        padding: '14px 16px',
+                        borderRadius: '16px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        opacity: isDone ? 0.65 : 1,
+                        transition: 'opacity 0.2s ease, transform 0.15s ease',
+                        border: isDone ? '1px dashed var(--border-clay)' : '1px solid var(--border-clay)',
                       }}
                     >
-                      {item.title}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      {item.category}
-                    </div>
-                  </div>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {/* Checkbox */}
+                          <div
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '7px',
+                              border: isDone ? 'none' : '2px solid var(--border-clay)',
+                              backgroundColor: isDone ? '#179354' : 'transparent',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#FFFFFF',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {isDone && <Check size={15} />}
+                          </div>
 
-                  {/* Check icon */}
-                  <div>
-                    {item.completed ? (
-                      <CheckCircle2 size={18} color="#179354" />
-                    ) : (
+                          <div>
+                            <div
+                              style={{
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                color: isDone ? 'var(--text-muted)' : 'var(--text-primary)',
+                                textDecoration: isDone ? 'line-through' : 'none',
+                              }}
+                            >
+                              {item.title}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                              <span
+                                style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  textTransform: 'uppercase',
+                                  color: item.type === 'topic' ? 'var(--lavender-text)' : 'var(--coral-text)',
+                                }}
+                              >
+                                {item.type === 'topic' ? 'Topic Revision' : 'Assignment Task'}
+                              </span>
+                              {item.subject_name && (
+                                <>
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>•</span>
+                                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                    {item.subject_name}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Duration pill */}
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            fontFamily: 'var(--font-mono)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <Clock size={13} /> {item.minutes}m
+                        </div>
+                      </div>
+
+                      {/* "Why" reasons pills */}
+                      {item.reasons && item.reasons.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginLeft: '34px' }}>
+                          {item.reasons.map((r, idx) => (
+                            <span
+                              key={idx}
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                backgroundColor: 'rgba(15, 118, 110, 0.08)',
+                                color: '#0F766E',
+                              }}
+                            >
+                              <strong>Why:</strong> {r.value}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+
+              {/* Overloaded Schedule Notice & Deferred items banner */}
+              {activeDeferredItems.length > 0 && (
+                <div
+                  className="clay-card-flat"
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '16px',
+                    backgroundColor: 'var(--coral-bg)',
+                    border: '1.5px solid var(--coral-border)',
+                    marginTop: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                    <AlertCircle size={16} color="#E3512B" />
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--coral-text)' }}>
+                      Deferred to Tomorrow ({activeDeferredItems.length} items)
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
+                    To prevent study burnout, these lower-urgency candidates were postponed to fit your daily study budget.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {activeDeferredItems.map((def) => (
                       <div
+                        key={def.id}
                         style={{
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '9999px',
-                          border: '2px solid var(--border-clay)',
+                          fontSize: '12px',
+                          color: 'var(--text-primary)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          padding: '4px 8px',
+                          borderRadius: '8px',
+                          backgroundColor: 'rgba(255,255,255,0.6)',
+                        }}
+                      >
+                        <span style={{ fontWeight: 600 }}>• {def.title}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>{def.minutes}m</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Fallback to Mock Schedule if offline or unauthenticated */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
+              {schedule.map((item, index) => {
+                const isLast = index === schedule.length - 1;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => onToggleSchedule(item.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '16px',
+                      cursor: 'pointer',
+                      padding: '8px 10px',
+                      borderRadius: '12px',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                    className="schedule-item-row"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                      <div
+                        className="timeline-dot"
+                        style={{
+                          backgroundColor:
+                            item.dotColor === 'green'
+                              ? '#179354'
+                              : item.dotColor === 'blue'
+                              ? '#2A79E2'
+                              : item.dotColor === 'coral'
+                              ? '#E3512B'
+                              : '#64748B',
                         }}
                       />
-                    )}
+                      {!isLast && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: '6px',
+                            top: '14px',
+                            bottom: '-28px',
+                            width: '2px',
+                            backgroundColor: 'var(--border-subtle)',
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        minWidth: '78px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: 'var(--text-muted)',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      {item.time}
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: item.completed ? 'var(--text-muted)' : 'var(--text-primary)',
+                          textDecoration: item.completed ? 'line-through' : 'none',
+                        }}
+                      >
+                        {item.title}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {item.category}
+                      </div>
+                    </div>
+
+                    <div>
+                      {item.completed ? (
+                        <CheckCircle2 size={18} color="#179354" />
+                      ) : (
+                        <div
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '9999px',
+                            border: '2px solid var(--border-clay)',
+                          }}
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Right Column: Quick Actions */}
-        <div className="clay-card" style={{ padding: '24px' }}>
-          <h2 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px' }}>
-            Quick Actions
-          </h2>
+        {/* Right Column: Upcoming Exams & Quick Actions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+          {/* Upcoming Exams Countdown Section */}
+          {todayPlan?.upcoming_exams && todayPlan.upcoming_exams.length > 0 && (
+            <div className="clay-card" style={{ padding: '22px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <GraduationCap size={20} color="#2A79E2" />
+                  <h2 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    Upcoming Exams
+                  </h2>
+                </div>
+                <button
+                  onClick={() => onNavigate('readiness')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#2A79E2',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                  }}
+                >
+                  Readiness <ChevronRight size={14} />
+                </button>
+              </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-              gap: '14px',
-            }}
-          >
-            {/* Action 1: Add Task */}
-            <button
-              onClick={onOpenAddTask}
-              className="clay-card-flat"
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {todayPlan.upcoming_exams.map((ex) => {
+                  const daysLeft = Math.round(ex.days_to_exam);
+                  const isUrgent = daysLeft <= 3;
+                  return (
+                    <div
+                      key={ex.id}
+                      onClick={() => onNavigate('readiness')}
+                      className="clay-card-flat"
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        border: isUrgent ? '1px solid var(--coral-border)' : '1px solid var(--border-clay)',
+                        backgroundColor: isUrgent ? 'var(--coral-bg)' : undefined,
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {ex.title}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          {ex.subject_name} • {ex.type}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          backgroundColor: isUrgent ? '#E3512B' : '#2A79E2',
+                          color: '#FFFFFF',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {daysLeft <= 0 ? 'Today!' : daysLeft === 1 ? 'Tomorrow' : `In ${daysLeft} days`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className="clay-card" style={{ padding: '24px' }}>
+            <h2 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '18px' }}>
+              Quick Actions
+            </h2>
+
+            <div
               style={{
-                padding: '20px 16px',
-                textAlign: 'left',
-                border: '1px solid var(--border-clay)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                gap: '14px',
               }}
             >
-              <div
-                className="clay-icon-pod"
+              {/* Action 1: Add Task */}
+              <button
+                onClick={onOpenAddTask}
+                className="clay-card-flat"
                 style={{
-                  backgroundColor: 'var(--coral-bg)',
-                  color: 'var(--coral-text)',
-                  border: '1px solid var(--coral-border)',
+                  padding: '20px 16px',
+                  textAlign: 'left',
+                  border: '1px solid var(--border-clay)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
                 }}
               >
-                <PlusCircle size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Add Task
+                <div
+                  className="clay-icon-pod"
+                  style={{
+                    backgroundColor: 'var(--coral-bg)',
+                    color: 'var(--coral-text)',
+                    border: '1px solid var(--coral-border)',
+                  }}
+                >
+                  <PlusCircle size={22} />
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Track assignment</div>
-              </div>
-            </button>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Add Task
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Track assignment</div>
+                </div>
+              </button>
 
-            {/* Action 2: Add Subject */}
-            <button
-              onClick={onOpenAddSubject}
-              className="clay-card-flat"
-              style={{
-                padding: '20px 16px',
-                textAlign: 'left',
-                border: '1px solid var(--border-clay)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-              }}
-            >
-              <div
-                className="clay-icon-pod"
+              {/* Action 2: Add Subject */}
+              <button
+                onClick={onOpenAddSubject}
+                className="clay-card-flat"
                 style={{
-                  backgroundColor: 'var(--sky-bg)',
-                  color: 'var(--sky-text)',
-                  border: '1px solid var(--sky-border)',
+                  padding: '20px 16px',
+                  textAlign: 'left',
+                  border: '1px solid var(--border-clay)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
                 }}
               >
-                <BookOpen size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Add Subject
+                <div
+                  className="clay-icon-pod"
+                  style={{
+                    backgroundColor: 'var(--sky-bg)',
+                    color: 'var(--sky-text)',
+                    border: '1px solid var(--sky-border)',
+                  }}
+                >
+                  <BookOpen size={22} />
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Semester course</div>
-              </div>
-            </button>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Add Subject
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Semester course</div>
+                </div>
+              </button>
 
-            {/* Action 3: Syllabus AI Extractor */}
-            <button
-              onClick={() => onNavigate('syllabus-ai')}
-              className="clay-card-flat"
-              style={{
-                padding: '20px 16px',
-                textAlign: 'left',
-                border: '1px solid var(--border-clay)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-              }}
-            >
-              <div
-                className="clay-icon-pod"
+              {/* Action 3: Syllabus AI Extractor */}
+              <button
+                onClick={() => onNavigate('syllabus-ai')}
+                className="clay-card-flat"
                 style={{
-                  backgroundColor: 'var(--lavender-bg)',
-                  color: 'var(--lavender-text)',
-                  border: '1px solid var(--lavender-border)',
+                  padding: '20px 16px',
+                  textAlign: 'left',
+                  border: '1px solid var(--border-clay)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
                 }}
               >
-                <Sparkles size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Syllabus AI
+                <div
+                  className="clay-icon-pod"
+                  style={{
+                    backgroundColor: 'var(--lavender-bg)',
+                    color: 'var(--lavender-text)',
+                    border: '1px solid var(--lavender-border)',
+                  }}
+                >
+                  <Sparkles size={22} />
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-extract topics</div>
-              </div>
-            </button>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Syllabus AI
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-extract topics</div>
+                </div>
+              </button>
 
-            {/* Action 4: Open Study Plan */}
-            <button
-              onClick={() => onNavigate('planner')}
-              className="clay-card-flat"
-              style={{
-                padding: '20px 16px',
-                textAlign: 'left',
-                border: '1px solid var(--border-clay)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-              }}
-            >
-              <div
-                className="clay-icon-pod"
+              {/* Action 4: Exam Readiness */}
+              <button
+                onClick={() => onNavigate('readiness')}
+                className="clay-card-flat"
                 style={{
-                  backgroundColor: 'var(--mint-bg)',
-                  color: 'var(--mint-text)',
-                  border: '1px solid var(--mint-border)',
+                  padding: '20px 16px',
+                  textAlign: 'left',
+                  border: '1px solid var(--border-clay)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
                 }}
               >
-                <CalendarIcon size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Study Plan
+                <div
+                  className="clay-icon-pod"
+                  style={{
+                    backgroundColor: 'var(--mint-bg)',
+                    color: 'var(--mint-text)',
+                    border: '1px solid var(--mint-border)',
+                  }}
+                >
+                  <TrendingUp size={22} />
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Calendar schedule</div>
-              </div>
-            </button>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Exam Readiness
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Mastery & weak units</div>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </div>

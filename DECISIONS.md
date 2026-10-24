@@ -102,3 +102,24 @@
     - Rating a single topic immediately and measurably shifts the exam's readiness percentage and syllabus coverage in real time without data denormalization.
   - **Multi-Tenant Zero-Knowledge Security:**
     - All review submissions, study session logs, and readiness endpoints verify that the target topic, subject, and exam strictly belong to `current_user.id`, returning `404 Not Found` upon any cross-user access attempts.
+
+## Decision 11: Daily Study Planner & Workload Heuristic Architecture (Phase 7)
+- **Context:** Students experience decision paralysis without a clear, prioritized daily roadmap. Simply showing a raw list of overdue tasks or unreviewed topics causes overwhelm. The platform needs an intelligent, explainable plan that respects the student's daily time budget while explaining *why* each item was selected.
+- **Decision:**
+  - **Dynamic Planner Endpoint (`GET /api/today`):**
+    - Gathers pending tasks, due revision topics, and weak topics of upcoming exams belonging to `current_user.id`.
+    - Scores each candidate using pure functional `calculate_priority(...)` incorporating urgency, exam proximity, weakness/decay, importance, and fit penalties.
+    - Fits candidates greedily into the student's configured `daily_study_minutes` (default 180m, max 3–5 items).
+    - Top scoring candidate is designated the **"Next Best Action"** with transparent, human-readable reasons (e.g., *"Internal exam in 3 days"*, *"Retention dropped to 42%"*, *"High syllabus weight"*).
+  - **Explainability & Recommendation Lifecycle (`recommendations`):**
+    - Daily plan and candidate recommendations are persisted with unique IDs in `DailyPlan` and `Recommendation` tables.
+    - Endpoints `POST /api/recommendations/{id}/accept` and `POST /api/recommendations/{id}/dismiss` empower students to accept items into their priority queue or dismiss irrelevant suggestions.
+    - Dismissed targets are excluded from active today's recommendations.
+  - **Workload Classification Heuristic:**
+    - Evaluates load ratio $L = \text{required\_minutes} / \text{available\_minutes}$:
+      - $L < 0.70$: **Comfortable** (well within study capacity).
+      - $0.70 \le L \le 1.00$: **Busy** (manageable focus required).
+      - $L > 1.00$: **Overloaded** (recommends deferring low-priority topics to tomorrow to prevent cognitive fatigue).
+  - **Rapid Onboarding Guarantee:**
+    - Automated lifecycle integration test (`test_rapid_onboarding_to_today_plan_under_three_minutes`) validates the complete cold-start pipeline: Student Registration $\to$ Subject Creation $\to$ Exam Scheduling $\to$ Syllabus Extraction & Confirmation $\to$ Instant generation of an actionable Today Plan with Next Best Action in $<3$ minutes.
+

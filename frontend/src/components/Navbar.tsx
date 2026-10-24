@@ -1,0 +1,244 @@
+import React, { useState, useEffect } from 'react';
+import { Search, Bell, Moon, Sun, Smartphone, Laptop, Menu, LogOut } from 'lucide-react';
+import { ScreenView } from '../types';
+import { checkBackendHealth, HealthCheckData } from '../lib/api';
+
+interface NavbarProps {
+  currentView: ScreenView;
+  onNavigate: (view: ScreenView) => void;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
+  onToggleMobileMenu: () => void;
+  onLogout?: () => void;
+  onOpenSettings?: () => void;
+  userName?: string;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({
+  currentView,
+  onNavigate,
+  isDarkMode,
+  onToggleDarkMode,
+  onToggleMobileMenu,
+  onLogout,
+  onOpenSettings,
+  userName,
+}) => {
+  const [backendHealth, setBackendHealth] = useState<{
+    checked: boolean;
+    ok: boolean;
+    data?: HealthCheckData;
+    error?: string;
+  }>({ checked: false, ok: false });
+
+  useEffect(() => {
+    let isMounted = true;
+    const verifyHealth = async () => {
+      const result = await checkBackendHealth();
+      if (isMounted) {
+        setBackendHealth({ checked: true, ok: result.ok, data: result.data, error: result.error });
+      }
+    };
+
+    verifyHealth();
+    const interval = setInterval(verifyHealth, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  return (
+    <header
+      className="clay-card-flat"
+      style={{
+        padding: '12px 24px',
+        marginBottom: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '16px',
+        position: 'sticky',
+        top: '12px',
+        zIndex: 15,
+      }}
+    >
+      {/* Mobile Menu Button & Search */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, maxWidth: '520px' }}>
+        <button
+          onClick={onToggleMobileMenu}
+          className="clay-btn-light lg:hidden"
+          style={{ width: '42px', height: '42px', padding: 0, borderRadius: '12px' }}
+          aria-label="Toggle menu"
+        >
+          <Menu size={20} />
+        </button>
+
+        <div style={{ position: 'relative', width: '100%' }}>
+          <Search
+            size={18}
+            style={{
+              position: 'absolute',
+              left: '14px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-muted)',
+            }}
+          />
+          <input
+            type="text"
+            placeholder="Search subjects, topics, exams..."
+            className="clay-input"
+            style={{
+              paddingLeft: '42px',
+              height: '42px',
+              fontSize: '14px',
+              borderRadius: '9999px',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Screen Views Quick Nav Pills (MVP Focus) */}
+      <div className="hidden xl:flex items-center gap-2" style={{ overflowX: 'auto', padding: '2px' }}>
+        <button
+          onClick={() => onNavigate('dashboard')}
+          className={`clay-btn ${currentView === 'dashboard' ? 'clay-btn-dark' : 'clay-btn-light'}`}
+          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
+        >
+          Today
+        </button>
+        <button
+          onClick={() => onNavigate('subjects')}
+          className={`clay-btn ${currentView === 'subjects' ? 'clay-btn-dark' : 'clay-btn-light'}`}
+          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
+        >
+          Subjects
+        </button>
+        <button
+          onClick={() => onNavigate('tasks')}
+          className={`clay-btn ${currentView === 'tasks' ? 'clay-btn-dark' : 'clay-btn-light'}`}
+          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
+        >
+          Tasks
+        </button>
+        <button
+          onClick={() => onNavigate('readiness')}
+          className={`clay-btn ${currentView === 'readiness' ? 'clay-btn-dark' : 'clay-btn-light'}`}
+          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
+        >
+          Readiness
+        </button>
+        <button
+          onClick={() => onNavigate('syllabus-ai')}
+          className={`clay-btn ${currentView === 'syllabus-ai' ? 'clay-btn-dark' : 'clay-btn-light'}`}
+          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
+        >
+          Syllabus AI
+        </button>
+        <button
+          onClick={() => onNavigate('prototype')}
+          className={`clay-btn ${currentView === 'prototype' ? 'clay-btn-dark' : 'clay-btn-light'}`}
+          style={{ height: '36px', padding: '6px 14px', fontSize: '12px', opacity: 0.85 }}
+        >
+          Prototype Lab
+        </button>
+      </div>
+
+      {/* Right Controls: Backend Status & Actions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Live Backend Connection Indicator */}
+        <div
+          className={backendHealth.ok ? 'clay-pill-mint' : 'clay-card-flat'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '5px 12px',
+            borderRadius: '9999px',
+            fontSize: '11px',
+            fontWeight: 700,
+            cursor: 'help',
+          }}
+          title={
+            backendHealth.ok
+              ? `FastAPI Backend: ${backendHealth.data?.app_name} (${backendHealth.data?.version})\nDatabase: ${backendHealth.data?.database}\nEnvironment: ${backendHealth.data?.environment}`
+              : `FastAPI status: ${backendHealth.error || 'Connecting to http://127.0.0.1:8000...'}`
+          }
+        >
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '9999px',
+              backgroundColor: backendHealth.ok ? '#179354' : '#CB7309',
+              boxShadow: backendHealth.ok ? '0 0 6px #179354' : 'none',
+            }}
+          />
+          <span className="hidden sm:inline">
+            {backendHealth.ok ? 'API Live (v0.1.0)' : 'API Connecting'}
+          </span>
+        </div>
+
+        {/* Toggle Mobile Preview Frame */}
+        <button
+          onClick={() => onNavigate(currentView === 'mobile-preview' ? 'dashboard' : 'mobile-preview')}
+          className={`clay-btn ${currentView === 'mobile-preview' ? 'clay-btn-dark' : 'clay-btn-light'}`}
+          style={{ width: '42px', height: '42px', padding: 0, borderRadius: '12px' }}
+          title={currentView === 'mobile-preview' ? 'Switch to Desktop Mode' : 'View Mobile Preview (Screen 11)'}
+        >
+          {currentView === 'mobile-preview' ? <Laptop size={19} /> : <Smartphone size={19} />}
+        </button>
+
+        {/* Theme Toggle */}
+        <button
+          onClick={onToggleDarkMode}
+          className="clay-btn-light"
+          style={{ width: '42px', height: '42px', padding: 0, borderRadius: '12px' }}
+          aria-label="Toggle dark mode"
+        >
+          {isDarkMode ? <Sun size={19} color="#FFB800" /> : <Moon size={19} />}
+        </button>
+
+        {/* User Profile Avatar with Initials (Clicks to open Settings) */}
+        <button
+          onClick={onOpenSettings}
+          style={{
+            width: '42px',
+            height: '42px',
+            borderRadius: '14px',
+            backgroundColor: 'var(--dark-pill-bg)',
+            color: '#FFFFFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 700,
+            fontSize: '15px',
+            boxShadow: '3px 4px 10px rgba(0, 0, 0, 0.25)',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'transform 0.15s ease',
+          }}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.95)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          title={userName ? `${userName} (Open Settings)` : 'Student (Open Settings)'}
+        >
+          {userName ? userName.charAt(0).toUpperCase() : 'M'}
+        </button>
+
+        {/* Logout button */}
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="clay-btn-light"
+            style={{ width: '42px', height: '42px', padding: 0, borderRadius: '12px' }}
+            title="Logout"
+            aria-label="Logout"
+          >
+            <LogOut size={18} />
+          </button>
+        )}
+      </div>
+    </header>
+  );
+};

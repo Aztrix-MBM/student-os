@@ -56,5 +56,19 @@
   - Returning `404 Not Found` completely conceals resource existence, ensuring true zero-knowledge privacy between engineering students.
   - Cascade Deletion Policy: Deleting a subject cascades and deletes its internal units, topics, and exams, but tasks attached to that subject have `subject_id` set to `NULL` (`ondelete="SET NULL"`), ensuring students never lose personal assignment notes if a subject is reorganized.
 
-
-
+## Decision 8: Pure Functional Intelligence Engine Architecture & Spaced Repetition Parameters (Phase 4)
+- **Context:** The intelligence engine calculates memory retention, prioritization, exam readiness, and daily study planning. Tight coupling to ORMs (SQLAlchemy) or web frameworks (FastAPI) creates architectural brittleness, impairs unit test velocity, and complicates offline simulation or client-side portability.
+- **Decision:**
+  - All engine logic in `backend/app/engine/` (`retention.py`, `priority.py`, `readiness.py`, `planner.py`) is written as **100% pure deterministic functions** with zero imports of `sqlalchemy`, `fastapi`, `pydantic`, or HTTP clients.
+  - An automated AST-based purity test (`test_engine_has_zero_db_or_framework_imports`) continuously enforces zero framework/ORM imports in CI/CD.
+  - **Spaced Repetition Parameters:**
+    - Retention Formula: Ebbinghaus exponential decay $R(t, S) = e^{-t / S}$ with initial stability $S_0 = 2.0$ days.
+    - Rating multipliers: `easy` $\to \times 2.5$, `good` $\to \times 2.0$, `hard` $\to \times 1.3$, `fail` $\to \max(1.0, S \times 0.5)$.
+    - Threshold: Reviews are due when retention drops below 0.70 ($70\%$).
+  - **Multi-Factor Priority Scoring:**
+    - $\text{score} = 0.35 \times \text{urgency} + 0.25 \times \text{exam\_prox} + 0.20 \times \text{weakness} + 0.15 \times \text{importance} - 0.05 \times \text{fit\_penalty}$.
+    - Human-readable reasons list is strictly mandatory on every computed item to empower student trust ("Due today", "Exam is today!", "Critical decay", "Exceeds available study time").
+  - **Greedy Planner & Workload Classification:**
+    - Prioritizes candidates by efficiency ($\text{score} / \text{minutes}$) into the student's daily study budget (default 120m, max 3-5 items).
+    - Top candidate is marked `next_best_action`.
+    - Workload categorized by load ratio $\text{required} / \text{available}$: $<0.7$ (comfortable), $0.7 - 1.0$ (busy), $>1.0$ (overloaded with deferral recommendations).

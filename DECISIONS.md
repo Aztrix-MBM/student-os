@@ -89,3 +89,16 @@
     - Daily quotas are enforced per student (default 5 extractions/day) with a dedicated `/api/syllabus/limits` inspection endpoint.
   - **Offline Heuristic Parser Fallback:**
     - To guarantee 100% test reliability and eliminate cloud API runtime dependencies in local/offline environments, the extractor includes a deterministic regex parser tuned for Indian engineering university syllabi (Anna University, VTU, JNTU) that operates autonomously when API keys are absent.
+
+## Decision 10: Event-Sourced Spaced Repetition Learning Loop & Dynamic Readiness (Phase 6)
+- **Context:** Storing mutable `mastery`, `stability`, or `last_studied` fields directly in the `topics` table destroys chronological revision history, prevents time-series decay analysis, and introduces concurrency bugs when multiple sessions or reviews occur.
+- **Decision:**
+  - **Immutable Event-Sourced Reviews (`topic_reviews`):**
+    - The `topics` table remains immutable regarding student progress. Every student rating action (`easy`, `good`, `hard`, `fail`) generates an immutable append-only `TopicReview` record capturing `(user_id, topic_id, reviewed_at, rating, self_level, quiz_score, stability_days)`.
+    - Stability is computed sequentially from the student's previous review stability factor (default $S_0 = 2.0$ days) using pure engine multipliers: easy ($\times 2.5$), good ($\times 2.0$), hard ($\times 1.3$), fail ($\max(1.0, S \times 0.5)$).
+  - **Dynamic Multi-Factor Exam Readiness Computation:**
+    - `/api/exams/{id}/readiness` calculates readiness on-the-fly by querying the latest review event for each topic linked to the exam.
+    - Elapsed days $t = (\text{now} - \text{reviewed\_at})$ feed into Ebbinghaus exponential decay $R = e^{-t / S}$.
+    - Rating a single topic immediately and measurably shifts the exam's readiness percentage and syllabus coverage in real time without data denormalization.
+  - **Multi-Tenant Zero-Knowledge Security:**
+    - All review submissions, study session logs, and readiness endpoints verify that the target topic, subject, and exam strictly belong to `current_user.id`, returning `404 Not Found` upon any cross-user access attempts.

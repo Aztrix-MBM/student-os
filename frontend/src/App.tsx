@@ -31,6 +31,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  submitTopicReview,
 } from './lib/api';
 
 export const App: React.FC = () => {
@@ -205,7 +206,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleRateTopic = (topicId: string, level: TopicLevel) => {
+  const handleRateTopic = async (topicId: string, level: TopicLevel) => {
     setTopicsDS((prev) =>
       prev.map((t) =>
         t.id === topicId
@@ -223,6 +224,15 @@ export const App: React.FC = () => {
           : t
       )
     );
+
+    if (currentUser && level !== 'unrated') {
+      const ratingMap: Record<'strong' | 'okay' | 'weak', 'easy' | 'good' | 'fail'> = {
+        strong: 'easy',
+        okay: 'good',
+        weak: 'fail',
+      };
+      await submitTopicReview(topicId, ratingMap[level], level);
+    }
   };
 
   const handleRateAllTopics = (level: TopicLevel) => {

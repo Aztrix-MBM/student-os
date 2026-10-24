@@ -476,3 +476,132 @@ export async function confirmSyllabus(
     return { ok: false, error: err.message || 'Network error during syllabus confirmation.' };
   }
 }
+
+// ---------------------- PHASE 6 LEARNING LOOP API CLIENT ----------------------
+
+export interface ApiTopicReview {
+  id: string;
+  topic_id: string;
+  user_id: string;
+  reviewed_at: string;
+  rating: string;
+  self_level?: string;
+  quiz_score?: number;
+  stability_days: number;
+  retention_estimate: number;
+}
+
+export interface ApiExamReadinessTopic {
+  id: string;
+  name: string;
+  importance: number;
+  mastery: number;
+  retention: number;
+  effective_score: number;
+  latest_rating?: string;
+  self_level?: string;
+  days_since_review?: number;
+  is_weak: boolean;
+}
+
+export interface ApiExamReadiness {
+  exam_id: string;
+  exam_title: string;
+  subject_id: string;
+  subject_name: string;
+  exam_date: string;
+  days_to_exam: number;
+  readiness_pct: number;
+  coverage_pct: number;
+  total_topics: number;
+  reviewed_topics: number;
+  weak_topics: ApiExamReadinessTopic[];
+  strong_topics: ApiExamReadinessTopic[];
+  all_topics: ApiExamReadinessTopic[];
+  label: string;
+}
+
+export interface ApiStudySession {
+  id: string;
+  user_id: string;
+  subject_id?: string;
+  topic_id?: string;
+  duration_minutes: number;
+  started_at: string;
+  created_at: string;
+}
+
+export async function submitTopicReview(
+  topicId: string,
+  rating: 'easy' | 'good' | 'hard' | 'fail',
+  selfLevel?: 'strong' | 'okay' | 'weak',
+  quizScore?: number
+): Promise<ApiTopicReview | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/topics/${topicId}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        rating,
+        self_level: selfLevel,
+        quiz_score: quizScore,
+      }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchExamReadiness(examId: string): Promise<ApiExamReadiness | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/exams/${examId}/readiness`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function logStudySession(
+  durationMinutes: number,
+  topicId?: string,
+  subjectId?: string
+): Promise<ApiStudySession | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/study-sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        duration_minutes: durationMinutes,
+        topic_id: topicId,
+        subject_id: subjectId,
+      }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchStudySessions(limit: number = 20): Promise<ApiStudySession[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/study-sessions?limit=${limit}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}

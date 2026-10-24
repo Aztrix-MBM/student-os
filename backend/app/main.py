@@ -8,6 +8,7 @@ from app.routers import (
     subjects_router,
     exams_router,
     tasks_router,
+    syllabus_router,
 )
 
 DEFAULT_INSECURE_SECRETS = [
@@ -67,6 +68,7 @@ app.include_router(auth_router)
 app.include_router(subjects_router)
 app.include_router(exams_router)
 app.include_router(tasks_router)
+app.include_router(syllabus_router)
 
 
 @app.get("/")

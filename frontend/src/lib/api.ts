@@ -363,3 +363,116 @@ export async function deleteTask(taskId: string): Promise<boolean> {
     return false;
   }
 }
+
+// ---------------------- PHASE 5 SYLLABUS AI API CLIENT ----------------------
+
+export interface SyllabusTopicDraft {
+  name: string;
+  importance: number;
+  difficulty: number;
+  order_no: number;
+}
+
+export interface SyllabusUnitDraft {
+  name: string;
+  order_no: number;
+  exam_weight: number;
+  topics: SyllabusTopicDraft[];
+}
+
+export interface SyllabusDraftResponse {
+  subject_id?: string;
+  units: SyllabusUnitDraft[];
+  raw_text_hash: string;
+  cached: boolean;
+  token_count?: number;
+  message?: string;
+}
+
+export interface SyllabusLimits {
+  limit: number;
+  used_today: number;
+  remaining_today: number;
+}
+
+export async function getSyllabusLimits(): Promise<SyllabusLimits | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/syllabus/limits`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function extractSyllabusText(
+  text: string,
+  subject_id?: string
+): Promise<{ ok: boolean; data?: SyllabusDraftResponse; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/syllabus/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ text, subject_id }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { ok: false, error: json.detail || 'Failed to extract syllabus.' };
+    }
+    return { ok: true, data: json };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Network error during syllabus extraction.' };
+  }
+}
+
+export async function uploadSyllabusPdf(
+  file: File,
+  subject_id?: string
+): Promise<{ ok: boolean; data?: SyllabusDraftResponse; error?: string }> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (subject_id) {
+      formData.append('subject_id', subject_id);
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/syllabus/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { ok: false, error: json.detail || 'Failed to upload syllabus PDF.' };
+    }
+    return { ok: true, data: json };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Network error during PDF upload.' };
+  }
+}
+
+export async function confirmSyllabus(
+  subject_id: string,
+  units: SyllabusUnitDraft[],
+  exam_id?: string
+): Promise<{ ok: boolean; data?: any; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/syllabus/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ subject_id, units, exam_id }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { ok: false, error: json.detail || 'Failed to save confirmed syllabus.' };
+    }
+    return { ok: true, data: json };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Network error during syllabus confirmation.' };
+  }
+}

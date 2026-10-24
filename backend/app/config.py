@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False
     TRUSTED_PROXY: bool = False
 
+    # AI & Syllabus Extraction Configuration
+    GEMINI_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+    LLM_PROVIDER: str = "auto"  # 'gemini', 'openai', or 'mock'
+    SYLLABUS_DAILY_LIMIT_PER_USER: int = 5
+    SYLLABUS_MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
+    SYLLABUS_MAX_PAGES: int = 30
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

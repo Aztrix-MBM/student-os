@@ -72,3 +72,20 @@
     - Prioritizes candidates by efficiency ($\text{score} / \text{minutes}$) into the student's daily study budget (default 120m, max 3-5 items).
     - Top candidate is marked `next_best_action`.
     - Workload categorized by load ratio $\text{required} / \text{available}$: $<0.7$ (comfortable), $0.7 - 1.0$ (busy), $>1.0$ (overloaded with deferral recommendations).
+
+## Decision 9: Syllabus AI Two-Stage Draft-Confirm Lifecycle & Security Safeguards (Phase 5)
+- **Context:** Automated syllabus extraction from unstructured university documents (PDFs, pasted text) is inherently non-deterministic. Storing raw AI outputs directly into student academic records without human review creates data corruption risks and prompt injection vulnerabilities.
+- **Decision:**
+  - **Two-Stage Draft & Confirm Flow:**
+    - `POST /api/syllabus/extract` and `POST /api/syllabus/upload` return an in-memory structured **DRAFT** tree without writing to the database.
+    - Students review and fine-tune units and topics (renaming, adding missing topics, deleting noise, toggling importance/yield chips) in an interactive Claymorphism UI tree.
+    - `POST /api/syllabus/confirm` explicitly validates student ownership of the subject and optional exam, committing the verified structure and associating topics with exams in a single atomic database transaction.
+  - **Security & Prompt Injection Defenses:**
+    - User input is treated strictly as **DATA, NOT INSTRUCTIONS** in the system prompt. System overrides or jailbreak phrases embedded in student uploads are discarded.
+    - Minimum PII: Student names, emails, and database keys are never sent to external LLMs.
+    - Resource Limits: PDF size is strictly capped at 5 MB, page count capped at 30 pages, and scanned image-only PDFs trigger an explicit fallback error (`SCANNED_PDF_TEXT_REQUIRED`) advising manual text paste.
+  - **SHA-256 Text Caching & Token Economics:**
+    - Syllabus text hashes are computed via SHA-256. Repeated requests with identical content return instant responses with zero token usage (`cached: true`).
+    - Daily quotas are enforced per student (default 5 extractions/day) with a dedicated `/api/syllabus/limits` inspection endpoint.
+  - **Offline Heuristic Parser Fallback:**
+    - To guarantee 100% test reliability and eliminate cloud API runtime dependencies in local/offline environments, the extractor includes a deterministic regex parser tuned for Indian engineering university syllabi (Anna University, VTU, JNTU) that operates autonomously when API keys are absent.

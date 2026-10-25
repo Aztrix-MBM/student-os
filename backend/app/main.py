@@ -11,7 +11,9 @@ from app.routers import (
     syllabus_router,
     learning_router,
     today_router,
+    retention_router,
 )
+
 
 DEFAULT_INSECURE_SECRETS = [
     "student-os-super-secret-jwt-key-2026-phase-1",
@@ -73,9 +75,11 @@ app.include_router(tasks_router)
 app.include_router(syllabus_router)
 app.include_router(learning_router)
 app.include_router(today_router)
+app.include_router(retention_router)
 
 
 @app.get("/")
+
 def root_redirect():
     return {
         "message": "Welcome to Student OS API",

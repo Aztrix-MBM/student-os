@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, Moon, Sun, Smartphone, Laptop, Menu, LogOut } from 'lucide-react';
+import { Search, Moon, Sun, Smartphone, Laptop, Menu, LogOut, Flame, Download } from 'lucide-react';
 import { ScreenView } from '../types';
-import { checkBackendHealth, HealthCheckData } from '../lib/api';
+import { checkBackendHealth, HealthCheckData, fetchStreak, ApiStreak } from '../lib/api';
+import { usePWAInstall } from '../lib/pwa';
 
 interface NavbarProps {
   currentView: ScreenView;
@@ -31,6 +32,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     error?: string;
   }>({ checked: false, ok: false });
 
+  const [streak, setStreak] = useState<ApiStreak | null>(null);
+  const { canInstall, promptInstall } = usePWAInstall();
+
   useEffect(() => {
     let isMounted = true;
     const verifyHealth = async () => {
@@ -40,8 +44,25 @@ export const Navbar: React.FC<NavbarProps> = ({
       }
     };
 
+    const loadStreak = async () => {
+      try {
+        const s = await fetchStreak();
+        if (isMounted && s) {
+          setStreak(s);
+        }
+      } catch {
+        // graceful offline
+      }
+    };
+
     verifyHealth();
-    const interval = setInterval(verifyHealth, 15000);
+    loadStreak();
+
+    const interval = setInterval(() => {
+      verifyHealth();
+      loadStreak();
+    }, 20000);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -145,8 +166,60 @@ export const Navbar: React.FC<NavbarProps> = ({
         </button>
       </div>
 
-      {/* Right Controls: Backend Status & Actions */}
+      {/* Right Controls: Streak, PWA, Health & User */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Soft Streak Flame Badge (Phase 8 Specification) */}
+        <div
+          className="clay-card-flat"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '9999px',
+            fontSize: '12px',
+            fontWeight: 800,
+            color: streak && streak.current_streak > 0 ? '#E3512B' : 'var(--text-muted)',
+            cursor: 'pointer',
+            backgroundColor: streak && streak.current_streak > 0 ? 'var(--coral-bg)' : undefined,
+            border: streak && streak.current_streak > 0 ? '1px solid var(--coral-border)' : '1px solid var(--border-clay)',
+          }}
+          onClick={() => onNavigate('dashboard')}
+          title={
+            streak
+              ? `${streak.message}\nLongest: ${streak.longest_streak}d | Grace remaining: ${streak.grace_days_remaining}d`
+              : 'Soft Streak tracker'
+          }
+        >
+          <Flame size={15} color={streak && streak.current_streak > 0 ? '#E3512B' : '#94A3B8'} />
+          <span>{streak ? `${streak.current_streak}d` : '0d'}</span>
+          {streak?.status === 'grace_applied' && (
+            <span style={{ fontSize: '10px', color: '#D97706', fontWeight: 800 }}>
+              🛡️
+            </span>
+          )}
+        </div>
+
+        {/* PWA Install Button (Prompt when available) */}
+        {canInstall && (
+          <button
+            onClick={promptInstall}
+            className="clay-btn clay-btn-dark"
+            style={{
+              height: '36px',
+              padding: '0 12px',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            title="Install Student OS as native PWA App on your device"
+          >
+            <Download size={14} />
+            <span className="hidden md:inline">Install App</span>
+          </button>
+        )}
+
         {/* Live Backend Connection Indicator */}
         <div
           className={backendHealth.ok ? 'clay-pill-mint' : 'clay-card-flat'}
@@ -200,7 +273,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {isDarkMode ? <Sun size={19} color="#FFB800" /> : <Moon size={19} />}
         </button>
 
-        {/* User Profile Avatar with Initials (Clicks to open Settings) */}
+        {/* User Profile Avatar with Initials */}
         <button
           onClick={onOpenSettings}
           style={{

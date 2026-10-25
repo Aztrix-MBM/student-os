@@ -1,20 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Settings,
-  User,
-  GraduationCap,
   Clock,
   ShieldCheck,
-  Moon,
-  Sun,
   Bell,
   Check,
   Save,
   LogOut,
   Sparkles,
+  Download,
+  Smartphone,
+  Send,
+  Zap,
 } from 'lucide-react';
 import { UserProfile } from '../types';
+import {
+  fetchNotificationPreferences,
+  updateNotificationPreferences,
+  testSendNotification,
+  ApiNotificationPreferences,
+} from '../lib/api';
+import { usePWAInstall, requestPushNotificationPermission } from '../lib/pwa';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -41,7 +48,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveProfile,
   onLogout,
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'study' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'study' | 'notifications' | 'security'>('profile');
   const [name, setName] = useState(user.name);
   const [college, setCollege] = useState(user.college || 'Rajalakshmi Institute of Technology (RIT)');
   const [semester, setSemester] = useState(user.semester || 'Semester 4 — Computer Science & Engineering');
@@ -49,9 +56,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [studyReminders, setStudyReminders] = useState(true);
   const [savedToast, setSavedToast] = useState(false);
 
+  // Phase 8 PWA & Notification State
+  const { canInstall, isInstalled, promptInstall } = usePWAInstall();
+  const [morningEnabled, setMorningEnabled] = useState<boolean>(true);
+  const [morningTime, setMorningTime] = useState<string>('08:00');
+  const [revisionAlerts, setRevisionAlerts] = useState<boolean>(true);
+  const [examAlerts, setExamAlerts] = useState<boolean>(true);
+  const [telegramChatId, setTelegramChatId] = useState<string>('');
+  const [hasPushSub, setHasPushSub] = useState<boolean>(false);
+  const [isTestingNotification, setIsTestingNotification] = useState<boolean>(false);
+  const [notificationToast, setNotificationToast] = useState<string | null>(null);
+
+  // Load preferences from backend when open
+  useEffect(() => {
+    if (isOpen) {
+      let isMounted = true;
+      fetchNotificationPreferences().then((prefs) => {
+        if (isMounted && prefs) {
+          setMorningEnabled(prefs.morning_plan_enabled);
+          setMorningTime(prefs.morning_plan_time || '08:00');
+          setRevisionAlerts(prefs.revision_due_alerts);
+          setExamAlerts(prefs.exam_countdown_alerts);
+          setTelegramChatId(prefs.telegram_chat_id || '');
+          setHasPushSub(prefs.has_push_subscription);
+        }
+      });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleEnablePush = async () => {
+    const res = await requestPushNotificationPermission();
+    if (res.ok) {
+      setHasPushSub(true);
+      setNotificationToast('Web Push enabled! Device registered for morning plans.');
+      setTimeout(() => setNotificationToast(null), 3500);
+    } else {
+      setNotificationToast(res.error || 'Failed to enable push notifications');
+      setTimeout(() => setNotificationToast(null), 3500);
+    }
+  };
+
+  const handleTriggerTest = async () => {
+    try {
+      setIsTestingNotification(true);
+      const res = await testSendNotification();
+      if (res.ok) {
+        setNotificationToast(res.message || 'Morning plan test notification dispatched!');
+      } else {
+        setNotificationToast(res.message);
+      }
+    } catch {
+      setNotificationToast('Network error triggering test alert');
+    } finally {
+      setIsTestingNotification(false);
+      setTimeout(() => setNotificationToast(null), 3500);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     onSaveProfile({
       name,
@@ -60,6 +127,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       dailyStudyMinutes: Number(dailyMinutes),
       studyReminders,
     });
+
+    // Save notification preferences
+    await updateNotificationPreferences({
+      morning_plan_enabled: morningEnabled,
+      morning_plan_time: morningTime,
+      revision_due_alerts: revisionAlerts,
+      exam_countdown_alerts: examAlerts,
+      telegram_chat_id: telegramChatId.trim() || undefined,
+    });
+
     setSavedToast(true);
     setTimeout(() => {
       setSavedToast(false);
@@ -88,8 +165,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         className="clay-card"
         style={{
           width: '100%',
-          maxWidth: '560px',
-          maxHeight: '90vh',
+          maxWidth: '580px',
+          maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
           padding: '28px',
@@ -119,7 +196,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 Student OS Settings
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Customize your academic profile & preferences
+                Customize your academic profile, PWA & alerts
               </p>
             </div>
           </div>
@@ -134,35 +211,71 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
+        {/* Toast Feedback */}
+        {notificationToast && (
+          <div
+            className="clay-card-flat animate-fade-in"
+            style={{
+              padding: '10px 16px',
+              backgroundColor: 'var(--mint-bg)',
+              color: 'var(--mint-text)',
+              border: '1px solid var(--mint-border)',
+              borderRadius: '14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>{notificationToast}</span>
+            <button
+              onClick={() => setNotificationToast(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* Tab Switcher Pills */}
         <div className="clay-tab-bar" style={{ marginBottom: '22px' }}>
           <button
             type="button"
             onClick={() => setActiveTab('profile')}
             className={`clay-tab-item ${activeTab === 'profile' ? 'active' : ''}`}
-            style={{ fontSize: '13px' }}
+            style={{ fontSize: '12px' }}
           >
-            Academic Profile
+            Profile
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('study')}
             className={`clay-tab-item ${activeTab === 'study' ? 'active' : ''}`}
-            style={{ fontSize: '13px' }}
+            style={{ fontSize: '12px' }}
           >
             Study Goals
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('notifications')}
+            className={`clay-tab-item ${activeTab === 'notifications' ? 'active' : ''}`}
+            style={{ fontSize: '12px' }}
+          >
+            PWA & Alerts
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('security')}
             className={`clay-tab-item ${activeTab === 'security' ? 'active' : ''}`}
-            style={{ fontSize: '13px' }}
+            style={{ fontSize: '12px' }}
           >
-            Security & Session
+            Security
           </button>
         </div>
 
-        {/* Form Body (Scrollable if viewport is short) */}
+        {/* Form Body */}
         <form onSubmit={handleSave} style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
           {activeTab === 'profile' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} className="animate-fade-in">
@@ -240,66 +353,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   style={{ width: '100%', height: '42px', fontSize: '14px' }}
                 />
               </div>
-
-              {/* Theme Toggle Card */}
-              <div
-                className="clay-card-flat"
-                style={{
-                  padding: '14px 16px',
-                  borderRadius: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginTop: '4px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {isDarkMode ? <Moon size={20} color="#7C45EB" /> : <Sun size={20} color="#FFB800" />}
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      Interface Appearance
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      Currently in {isDarkMode ? 'Dark Clay' : 'Light Clay'} mode
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={onToggleDarkMode}
-                  className="clay-btn-light"
-                  style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px' }}
-                >
-                  Switch to {isDarkMode ? 'Light' : 'Dark'}
-                </button>
-              </div>
             </div>
           )}
 
           {activeTab === 'study' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }} className="animate-fade-in">
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                  Daily Target Study Time (Minutes)
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                  <input
-                    type="number"
-                    min={15}
-                    max={600}
-                    step={15}
-                    value={dailyMinutes}
-                    onChange={(e) => setDailyMinutes(Number(e.target.value))}
-                    className="clay-input"
-                    style={{ width: '110px', height: '42px', fontSize: '15px', fontWeight: 700 }}
-                  />
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                    minutes / day ({Math.floor(dailyMinutes / 60)}h {dailyMinutes % 60}m)
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Daily Study Target: {dailyMinutes} Minutes ({Math.round((dailyMinutes / 60) * 10) / 10} Hours)
+                  </label>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--coral-text)' }}>
+                    {dailyMinutes >= 180 ? 'Optimal for Engineering' : 'Light Pace'}
                   </span>
                 </div>
 
-                {/* Preset Pills */}
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   {presetMinutes.map((mins) => (
                     <button
@@ -307,7 +375,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       onClick={() => setDailyMinutes(mins)}
                       className={`clay-btn ${dailyMinutes === mins ? 'clay-btn-dark' : 'clay-btn-light'}`}
-                      style={{ padding: '4px 12px', fontSize: '12px', borderRadius: '10px' }}
+                      style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px' }}
                     >
                       {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
                     </button>
@@ -315,38 +383,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Study Habit Reminders */}
-              <div
-                className="clay-card-flat"
-                style={{
-                  padding: '14px 16px',
-                  borderRadius: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Bell size={20} color="var(--coral-text)" />
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      Exam Revision Alerts
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      Show alerts for topics with &lt;70% retention score
-                    </div>
-                  </div>
-                </div>
-
-                <input
-                  type="checkbox"
-                  checked={studyReminders}
-                  onChange={(e) => setStudyReminders(e.target.checked)}
-                  style={{ width: '18px', height: '18px', accentColor: 'var(--coral-text)', cursor: 'pointer' }}
-                />
-              </div>
-
-              {/* Daily Algorithm Summary */}
               <div
                 className="clay-recessed"
                 style={{
@@ -359,10 +395,237 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               >
                 <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Sparkles size={14} color="var(--lavender-text)" />
-                  Next Best Action Engine
+                  Greedy Daily Planner Capacity
                 </div>
-                Your daily target automatically balances topic retention decay curves and exam weightage to prioritize today's study queue.
+                The planner engine fits high-priority tasks and revision-due topics into this exact study budget each morning.
               </div>
+            </div>
+          )}
+
+          {/* Phase 8 PWA & Notifications Tab */}
+          {activeTab === 'notifications' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} className="animate-fade-in">
+              {/* PWA Section */}
+              <div
+                className="clay-card-flat"
+                style={{
+                  padding: '16px',
+                  borderRadius: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Smartphone size={22} color="var(--sky-text)" />
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        Progressive Web App (PWA)
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {isInstalled
+                          ? 'Installed as standalone desktop/mobile app'
+                          : canInstall
+                          ? 'Available to install on this device'
+                          : 'Service Worker active (offline capable)'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {canInstall && !isInstalled && (
+                    <button
+                      type="button"
+                      onClick={promptInstall}
+                      className="clay-btn clay-btn-dark"
+                      style={{ padding: '6px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Download size={14} /> Install App
+                    </button>
+                  )}
+                </div>
+
+                <div
+                  className="clay-recessed"
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    fontSize: '11px',
+                    color: 'var(--text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <Zap size={14} color="#179354" />
+                  <span>Offline cache active via service worker: study plans load instantaneously.</span>
+                </div>
+              </div>
+
+              {/* Web Push Morning Plan Alert */}
+              <div
+                className="clay-card-flat"
+                style={{
+                  padding: '16px',
+                  borderRadius: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Bell size={20} color="var(--coral-text)" />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        Morning Study Plan Digest
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        Daily notification with Next Best Action & Soft Streak
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    type="checkbox"
+                    checked={morningEnabled}
+                    onChange={(e) => setMorningEnabled(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--coral-text)', cursor: 'pointer' }}
+                  />
+                </div>
+
+                {morningEnabled && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '6px' }}>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      Morning Dispatch Time
+                    </label>
+                    <input
+                      type="time"
+                      value={morningTime}
+                      onChange={(e) => setMorningTime(e.target.value)}
+                      className="clay-input"
+                      style={{ height: '34px', fontSize: '13px', padding: '0 8px' }}
+                    />
+                  </div>
+                )}
+
+                {!hasPushSub && (
+                  <button
+                    type="button"
+                    onClick={handleEnablePush}
+                    className="clay-btn clay-btn-light"
+                    style={{
+                      height: '34px',
+                      fontSize: '12px',
+                      color: 'var(--coral-text)',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Bell size={14} /> Enable Web Push on this Browser
+                  </button>
+                )}
+              </div>
+
+              {/* Revision Due & Exam Countdown Toggles */}
+              <div
+                className="clay-card-flat"
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Spaced Revision Reminders
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      Notify when topic retention drops below 70% threshold
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={revisionAlerts}
+                    onChange={(e) => setRevisionAlerts(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--coral-text)', cursor: 'pointer' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Upcoming Exam Countdowns
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      Urgent countdown alert when an exam is within 7 days
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={examAlerts}
+                    onChange={(e) => setExamAlerts(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--coral-text)', cursor: 'pointer' }}
+                  />
+                </div>
+              </div>
+
+              {/* Telegram Bot Dispatch (Build Guide Section 10 Phase 8) */}
+              <div
+                className="clay-card-flat"
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Telegram Bot Integration (Optional)
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Receive morning study digests directly to your Telegram chat
+                  </div>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="e.g. @rit_student_chat_id"
+                  value={telegramChatId}
+                  onChange={(e) => setTelegramChatId(e.target.value)}
+                  className="clay-input"
+                  style={{ width: '100%', height: '36px', fontSize: '13px' }}
+                />
+              </div>
+
+              {/* Test Notification Dispatch Button */}
+              <button
+                type="button"
+                onClick={handleTriggerTest}
+                disabled={isTestingNotification}
+                className="clay-btn clay-btn-light"
+                style={{
+                  padding: '10px 16px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  borderRadius: '12px',
+                }}
+              >
+                <Send size={15} />
+                {isTestingNotification ? 'Generating Test Digest...' : 'Send Test Morning Notification'}
+              </button>
             </div>
           )}
 

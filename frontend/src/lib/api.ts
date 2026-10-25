@@ -693,3 +693,131 @@ export async function dismissRecommendation(recId: string): Promise<boolean> {
     return false;
   }
 }
+
+// ---------------------- PHASE 8 RETENTION & NOTIFICATIONS API CLIENT ----------------------
+
+export interface ApiStreak {
+  current_streak: number;
+  longest_streak: number;
+  total_active_days: number;
+  is_active_today: boolean;
+  grace_days_used: number;
+  grace_days_remaining: number;
+  status: 'active' | 'at_risk' | 'grace_applied' | 'broken';
+  message: string;
+  activity_calendar: string[];
+}
+
+export interface ApiNotificationPreferences {
+  morning_plan_enabled: boolean;
+  morning_plan_time: string;
+  revision_due_alerts: boolean;
+  exam_countdown_alerts: boolean;
+  telegram_chat_id?: string;
+  has_push_subscription: boolean;
+}
+
+export async function fetchStreak(): Promise<ApiStreak | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/retention/streak`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchNotificationPreferences(): Promise<ApiNotificationPreferences | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/notifications/preferences`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function updateNotificationPreferences(
+  updates: Partial<ApiNotificationPreferences>
+): Promise<ApiNotificationPreferences | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/notifications/preferences`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function subscribePush(sub: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/notifications/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(sub),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function unsubscribePush(endpoint: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/notifications/unsubscribe?endpoint=${encodeURIComponent(endpoint)}`, {
+      method: 'DELETE',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchMorningDigest(): Promise<any | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/notifications/morning-digest`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function testSendNotification(): Promise<{ ok: boolean; message: string; payload?: any }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/notifications/test-send`, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) return { ok: false, message: 'Failed to trigger test notification.' };
+    return await res.json();
+  } catch (err: any) {
+    return { ok: false, message: err.message || 'Network error triggering test notification.' };
+  }
+}
+

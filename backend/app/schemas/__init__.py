@@ -22,6 +22,16 @@ from app.schemas.academic import (
     TaskResponse,
 )
 
+from app.schemas.notifications import (
+    StreakResponse,
+    PushSubscriptionCreate,
+    PushSubscriptionResponse,
+    NotificationPreferenceResponse,
+    NotificationPreferenceUpdate,
+    MorningDigestResponse,
+    TestNotificationResponse,
+)
+
 __all__ = [
     "HealthResponse",
     "UserBase",
@@ -46,4 +56,12 @@ __all__ = [
     "TaskCreate",
     "TaskUpdate",
     "TaskResponse",
+    "StreakResponse",
+    "PushSubscriptionCreate",
+    "PushSubscriptionResponse",
+    "NotificationPreferenceResponse",
+    "NotificationPreferenceUpdate",
+    "MorningDigestResponse",
+    "TestNotificationResponse",
 ]
+

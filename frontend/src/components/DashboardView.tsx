@@ -25,10 +25,13 @@ import {
   dismissRecommendation,
   updateTask,
   submitTopicReview,
+  fetchStreak,
   ApiTodayPlan,
   ApiPlanItem,
   ApiUpcomingExam,
+  ApiStreak,
 } from '../lib/api';
+
 
 interface DashboardViewProps {
   user: UserProfile;
@@ -61,20 +64,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const currentHour = today.getHours();
   const greeting = currentHour < 12 ? 'Good Morning' : currentHour < 17 ? 'Good Afternoon' : 'Good Evening';
 
-  // Phase 7 Today Plan Live State
+  // Phase 7 & 8 Today Plan and Retention State
   const [todayPlan, setTodayPlan] = useState<ApiTodayPlan | null>(null);
+  const [streak, setStreak] = useState<ApiStreak | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(true);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [completedPlanIds, setCompletedPlanIds] = useState<Set<string>>(new Set());
   const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string | null>(null);
 
-  // Fetch live Today Plan from backend
+  // Fetch live Today Plan and Soft Streak from backend
   const loadPlan = async () => {
     try {
       setIsLoadingPlan(true);
-      const plan = await fetchTodayPlan();
+      const [plan, streakData] = await Promise.all([fetchTodayPlan(), fetchStreak()]);
       if (plan) {
         setTodayPlan(plan);
+      }
+      if (streakData) {
+        setStreak(streakData);
       }
     } catch {
       // Graceful fallback to prop schedule
@@ -82,6 +89,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setIsLoadingPlan(false);
     }
   };
+
 
   useEffect(() => {
     loadPlan();
@@ -297,6 +305,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           )}
 
+          {/* Soft Streak Badge (Phase 8 Retention) */}
+          {streak && (
+            <div
+              className="clay-card-flat"
+              style={{
+                padding: '12px 18px',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                border: streak.current_streak > 0 ? '1.5px solid var(--coral-border)' : '1px solid var(--border-clay)',
+                backgroundColor: streak.current_streak > 0 ? 'var(--coral-bg)' : undefined,
+              }}
+              title={`${streak.message}\nLongest streak: ${streak.longest_streak}d`}
+            >
+              <div
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '12px',
+                  backgroundColor: streak.current_streak > 0 ? '#E3512B' : '#64748B',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Flame size={20} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    color: streak.current_streak > 0 ? 'var(--coral-text)' : 'var(--text-primary)',
+                  }}
+                >
+                  {streak.current_streak > 0 ? `${streak.current_streak}-Day Streak` : 'Start Streak'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {streak.status === 'grace_applied' ? 'Grace Day Active 🛡️' : `${streak.total_active_days} active days`}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Date Clay Badge */}
           <div
             className="clay-card-flat"
@@ -333,6 +387,72 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Nearest Exam Countdown Alert Banner (Phase 8 Specification) */}
+      {(() => {
+        const nearest = todayPlan?.upcoming_exams && todayPlan.upcoming_exams.length > 0
+          ? todayPlan.upcoming_exams[0]
+          : null;
+        if (!nearest || nearest.days_to_exam > 7) return null;
+        const days = Math.round(nearest.days_to_exam);
+        const isUrgent = days <= 3;
+
+        return (
+          <div
+            className="clay-card-flat animate-fade-in"
+            style={{
+              padding: '16px 22px',
+              borderRadius: '20px',
+              backgroundColor: isUrgent ? 'var(--coral-bg)' : 'var(--amber-bg)',
+              border: `1.5px solid ${isUrgent ? 'var(--coral-border)' : 'var(--amber-border)'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '16px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  backgroundColor: isUrgent ? '#E3512B' : '#D97706',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '18px',
+                }}
+              >
+                ⏳
+              </div>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  {nearest.title} ({nearest.subject_name}) is{' '}
+                  <span style={{ color: isUrgent ? 'var(--coral-text)' : 'var(--amber-text)' }}>
+                    {days <= 0 ? 'Today!' : days === 1 ? 'Tomorrow!' : `in ${days} days`}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Exam proximity boost is active in your Daily Plan. Review weak units to secure your marks!
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onNavigate('readiness')}
+              className="clay-btn clay-btn-dark"
+              style={{ height: '38px', padding: '0 16px', fontSize: '12px', fontWeight: 700 }}
+            >
+              Check Exam Readiness <ArrowRight size={14} />
+            </button>
+          </div>
+        );
+      })()}
+
 
       {/* 4 Stats Metrics Row matching reference panel 4 */}
       <div

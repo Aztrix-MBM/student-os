@@ -123,3 +123,24 @@
   - **Rapid Onboarding Guarantee:**
     - Automated lifecycle integration test (`test_rapid_onboarding_to_today_plan_under_three_minutes`) validates the complete cold-start pipeline: Student Registration $\to$ Subject Creation $\to$ Exam Scheduling $\to$ Syllabus Extraction & Confirmation $\to$ Instant generation of an actionable Today Plan with Next Best Action in $<3$ minutes.
 
+## Decision 12: Progressive Web App, Soft Streaks, and Morning Plan Notifications (Phase 8)
+- **Context:** To ensure students remain consistent throughout the semester, the app requires frictionless installation on mobile devices and daily study habit loops. However, rigid "hard streaks" that wipe out a 20-day streak after a single missed day induce study anxiety and cause app abandonment. Additionally, morning notification digests must summarize priorities without spamming the student.
+- **Decision:**
+  - **Installable Progressive Web App (PWA):**
+    - Configured Web App Manifest (`manifest.json`) supporting standalone display mode, orientation locking, and bespoke icons.
+    - Implemented Service Worker (`sw.js`) with dual-strategy caching:
+      - **Cache-First** for static assets, clay cards, and design tokens, guaranteeing sub-second cold starts and offline resiliency.
+      - **Network-First** with offline fallbacks for all `/api/` dynamic endpoints.
+    - Built a reactive install prompt (`usePWAInstall`) that listens to the browser's `beforeinstallprompt` event and exposes a clean Claymorphism install button in the navigation bar and settings modal.
+  - **Soft Streak Retention Engine (`streak.py`):**
+    - Pure functional algorithm with AST-enforced purity (`calculate_soft_streak`).
+    - Implemented intelligent **Grace Day Bridging**: a 1-day missed study gap does not wipe the streak to 0; instead, a grace day protects the streak (`status: grace_applied`), preserving student morale and providing a 24-hour recovery window.
+    - Tracks `current_streak`, `longest_streak`, `total_active_days`, `grace_days_used`, and human-readable motivational prompts.
+  - **Web Push & Notification Digest Architecture (`notifications.py`):**
+    - Implemented database models `PushSubscription` and `NotificationPreference` with Alembic migration `83ba5004f89e`.
+    - Endpoints `POST /api/notifications/subscribe` and `DELETE /api/notifications/unsubscribe` manage browser Web Push API tokens.
+    - Endpoint `GET /api/notifications/morning-digest` generates a morning study plan payload combining the Next Best Action, pending tasks count, upcoming exam proximity, and soft streak.
+    - Support for optional Telegram Bot alerts (`telegram_chat_id`) allows engineering students who prefer chat apps to receive morning digests directly in messaging feeds.
+    - Test endpoint `POST /api/notifications/test-send` allows students to verify system push notifications instantly from the settings interface.
+
+

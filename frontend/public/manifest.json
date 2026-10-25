@@ -1,0 +1,40 @@
+{
+  "name": "Student OS — Academic Journey & Exam Readiness",
+  "short_name": "Student OS",
+  "description": "Personalized exam readiness, daily study planner, and spaced retention engine for engineering students",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#F4F6F9",
+  "theme_color": "#242D38",
+  "orientation": "portrait-primary",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today's Study Plan",
+      "short_name": "Today",
+      "url": "/",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Exam Readiness",
+      "short_name": "Readiness",
+      "url": "/?view=readiness",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}

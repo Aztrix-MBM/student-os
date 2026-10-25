@@ -3,6 +3,7 @@ from app.models.user import User
 from app.models.academic import Subject, Unit, Topic, Exam, Task, exam_topics
 from app.models.learning import TopicReview, StudySession
 from app.models.planner import DailyPlan, Recommendation
+from app.models.notifications import PushSubscription, NotificationPreference
 
 __all__ = [
     "Base",
@@ -17,4 +18,7 @@ __all__ = [
     "StudySession",
     "DailyPlan",
     "Recommendation",
+    "PushSubscription",
+    "NotificationPreference",
 ]
+

@@ -31,6 +31,7 @@ import {
   createSubject,
   deleteSubject,
   fetchTasks,
+  fetchSubjectDetails,
   createTask,
   updateTask,
   deleteTask,
@@ -46,12 +47,12 @@ export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserAuthResponse | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
-  // Core App State
-  const [subjects, setSubjects] = useState<Subject[]>(initialSubjects);
-  const [tasks, setTasks] = useState<TaskItem[]>(initialTasks);
-  const [schedule, setSchedule] = useState<ScheduleItem[]>(initialSchedule);
-  const [topicsDS, setTopicsDS] = useState<TopicItem[]>(initialTopicsDS);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('sub_ds');
+  // Core App State (Isolated strictly per authenticated student)
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  const [topicsDS, setTopicsDS] = useState<TopicItem[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
 
   // Modals
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState<boolean>(false);
@@ -69,8 +70,8 @@ export const App: React.FC = () => {
     dailyStudyMinutes: number;
     studyReminders: boolean;
   }>({
-    college: 'Rajalakshmi Institute of Technology (RIT)',
-    semester: 'Semester 4 — Computer Science & Engineering',
+    college: 'Engineering College',
+    semester: 'Current Semester',
     dailyStudyMinutes: 180,
     studyReminders: true,
   });
@@ -84,6 +85,123 @@ export const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
+  // Reset all student data to prevent cross-account data leaks
+  const resetUserState = () => {
+    setCurrentUser(null);
+    setIsProUser(false);
+    setSubjects([]);
+    setTasks([]);
+    setSchedule([]);
+    setTopicsDS([]);
+    setSelectedSubjectId('');
+    setProfileOverrides({
+      college: 'Engineering College',
+      semester: 'Current Semester',
+      dailyStudyMinutes: 180,
+      studyReminders: true,
+    });
+  };
+
+  // Load topics for a given subject from API (or fall back to curriculum topics)
+  const loadSubjectTopics = async (subjectId?: string, currentSubs?: Subject[]) => {
+    const list = currentSubs || subjects;
+    const targetId = subjectId || selectedSubjectId || (list.length > 0 ? list[0].id : '');
+
+    if (targetId) {
+      try {
+        const detail = await fetchSubjectDetails(targetId);
+        if (detail && detail.units && detail.units.length > 0) {
+          const mappedTopics: TopicItem[] = [];
+          detail.units.forEach((u) => {
+            (u.topics || []).forEach((t) => {
+              mappedTopics.push({
+                id: t.id,
+                unitId: u.id,
+                unitName: u.name,
+                name: t.name,
+                importance: t.importance ?? 0.8,
+                difficulty: t.difficulty ?? 3,
+                level: 'unrated',
+                lastReviewedDaysAgo: 99,
+                stabilityDays: 2.0,
+              });
+            });
+          });
+          if (mappedTopics.length > 0) {
+            setTopicsDS(mappedTopics);
+            setSelectedSubjectId(targetId);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load topics for subject:', err);
+      }
+    }
+
+    // Fallback: If Data Structures or empty, provide curriculum topics
+    const subObj = list.find((s) => s.id === targetId);
+    if (!subObj || subObj.name.toLowerCase().includes('data structure')) {
+      setTopicsDS(initialTopicsDS);
+    } else {
+      setTopicsDS([]);
+    }
+    if (targetId) setSelectedSubjectId(targetId);
+  };
+
+  // Reusable loader for the authenticated student's real database records
+  const loadUserData = async (user: UserAuthResponse) => {
+    setCurrentUser(user);
+    setIsProUser(Boolean(user.is_pro));
+    setProfileOverrides({
+      name: user.name,
+      college: 'Engineering College',
+      semester: 'Current Semester',
+      dailyStudyMinutes: user.daily_study_minutes || 180,
+      studyReminders: true,
+    });
+
+    try {
+      const [apiSubs, apiTasks] = await Promise.all([fetchSubjects(), fetchTasks()]);
+      const formattedSubs: Subject[] = apiSubs.map((s) => ({
+        id: s.id,
+        name: s.name,
+        code: s.code,
+        progress: 0,
+        completedTopics: 0,
+        totalTopics: s.topics_count || 15,
+        semester: s.semester || 'current',
+        iconType: 'chip',
+        colorTheme: (s.color_theme as any) || 'sky',
+      }));
+      setSubjects(formattedSubs);
+
+      setTasks(
+        apiTasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          subjectName: t.subject_name || 'General',
+          priority: t.priority >= 4 ? 'high' : t.priority >= 3 ? 'medium' : 'low',
+          dueDate: t.due_date
+            ? new Date(t.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+            : 'Flexible',
+          status: t.status as any,
+          estimatedMinutes: t.estimated_minutes,
+        }))
+      );
+
+      const firstId = formattedSubs.length > 0 ? formattedSubs[0].id : '';
+      setSelectedSubjectId(firstId);
+      await loadSubjectTopics(firstId, formattedSubs);
+      setSchedule([]);
+    } catch (err) {
+      console.error('Failed to load student data:', err);
+      setSubjects([]);
+      setTasks([]);
+      setSchedule([]);
+      setTopicsDS(initialTopicsDS);
+    }
+  };
+
   // Check auth session on mount (/api/me) & load real student data
   useEffect(() => {
     let isMounted = true;
@@ -92,39 +210,13 @@ export const App: React.FC = () => {
         const userRes = await getMe();
         if (isMounted) {
           if (userRes) {
-            setCurrentUser(userRes);
-            // Fetch backend subjects and tasks
-            const [apiSubs, apiTasks] = await Promise.all([fetchSubjects(), fetchTasks()]);
-            if (isMounted && apiSubs.length > 0) {
-              setSubjects(apiSubs.map(s => ({
-                id: s.id,
-                name: s.name,
-                code: s.code,
-                progress: 0,
-                completedTopics: 0,
-                totalTopics: s.topics_count || 15,
-                semester: s.semester || 'current',
-                iconType: 'chip',
-                colorTheme: (s.color_theme as any) || 'sky',
-              })));
-            }
-            if (isMounted && apiTasks.length > 0) {
-              setTasks(apiTasks.map(t => ({
-                id: t.id,
-                title: t.title,
-                subjectName: t.subject_name || 'General',
-                priority: t.priority >= 4 ? 'high' : t.priority >= 3 ? 'medium' : 'low',
-                dueDate: t.due_date ? new Date(t.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Flexible',
-                status: t.status as any,
-                estimatedMinutes: t.estimated_minutes,
-              })));
-            }
+            await loadUserData(userRes);
           } else {
-            setCurrentUser(null);
+            resetUserState();
           }
         }
-      } catch (err) {
-        if (isMounted) setCurrentUser(null);
+      } catch {
+        if (isMounted) resetUserState();
       } finally {
         if (isMounted) setIsAuthChecking(false);
       }
@@ -191,24 +283,52 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleAddSubject = async (newSub: Omit<Subject, 'id'>) => {
-    const tempId = `sub_${Date.now()}`;
-    const subject: Subject = {
-      ...newSub,
-      id: tempId,
-    };
-    setSubjects((prev) => [...prev, subject]);
+  const handleAddSubject = async (newSub: Omit<Subject, 'id'>): Promise<{ ok: boolean; error?: string }> => {
+    // 1. Guard against Free Tier limit (max 2 subjects)
+    if (!isProUser && subjects.length >= 2) {
+      setIsExamPassOpen(true);
+      return {
+        ok: false,
+        error: 'Free plan limit reached: maximum 2 subjects. Upgrade to Pro for unlimited subjects.',
+      };
+    }
 
     if (currentUser) {
-      const apiSub = await createSubject({
+      const res = await createSubject({
         name: newSub.name,
         code: newSub.code,
         semester: newSub.semester,
         color_theme: newSub.colorTheme,
       });
-      if (apiSub) {
-        setSubjects((prev) => prev.map((s) => (s.id === tempId ? { ...s, id: apiSub.id } : s)));
+
+      if (!res.ok || !res.data) {
+        if (res.status === 403 || res.error?.includes('Free plan limit')) {
+          setIsExamPassOpen(true);
+        } else if (res.status === 401) {
+          return {
+            ok: false,
+            error: 'Your session has expired. Please log in again to save subjects.',
+          };
+        }
+        return {
+          ok: false,
+          error: res.error || 'Failed to create subject in database.',
+        };
       }
+
+      const subject: Subject = {
+        ...newSub,
+        id: res.data.id,
+      };
+      setSubjects((prev) => [...prev, subject]);
+      return { ok: true };
+    } else {
+      const subject: Subject = {
+        ...newSub,
+        id: `sub_${Date.now()}`,
+      };
+      setSubjects((prev) => [...prev, subject]);
+      return { ok: true };
     }
   };
 
@@ -257,24 +377,76 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleAddExtractedSubject = (name: string, code: string, _unitsCount: number, topicsCount: number) => {
-    const sub: Subject = {
-      id: `sub_${Date.now()}`,
-      name,
-      code,
-      progress: 20,
-      completedTopics: Math.round(topicsCount * 0.2),
-      totalTopics: topicsCount,
-      semester: 'current',
-      iconType: 'chip',
-      colorTheme: 'sky',
-    };
-    setSubjects((prev) => [sub, ...prev]);
+  const handleAddExtractedSubject = async (
+    subjectId: string,
+    name: string,
+    code: string,
+    unitsCount: number,
+    topicsCount: number,
+    unitsTree?: any[]
+  ) => {
+    // 1. Immediately map the extracted units & topics to TopicItem[] so they appear instantly
+    if (unitsTree && unitsTree.length > 0) {
+      const extractedTopics: TopicItem[] = [];
+      unitsTree.forEach((u, uIdx) => {
+        (u.topics || []).forEach((t: any, tIdx: number) => {
+          extractedTopics.push({
+            id: t.id || `ext_top_${uIdx}_${tIdx}_${Date.now()}`,
+            unitId: u.id || `ext_unit_${uIdx}`,
+            unitName: u.name || `Unit ${uIdx + 1}`,
+            name: t.name,
+            importance: t.importance ?? 0.8,
+            difficulty: t.difficulty ?? 3,
+            level: 'unrated',
+            lastReviewedDaysAgo: 99,
+            stabilityDays: 2.0,
+          });
+        });
+      });
+      if (extractedTopics.length > 0) {
+        setTopicsDS(extractedTopics);
+      }
+    }
+
+    // 2. Refresh subjects list from database
+    try {
+      const apiSubs = await fetchSubjects();
+      setSubjects(
+        apiSubs.map((s) => ({
+          id: s.id,
+          name: s.name,
+          code: s.code,
+          progress: 20,
+          completedTopics: 0,
+          totalTopics: s.topics_count || topicsCount,
+          semester: s.semester || 'current',
+          iconType: 'chip',
+          colorTheme: (s.color_theme as any) || 'sky',
+        }))
+      );
+    } catch {
+      const sub: Subject = {
+        id: subjectId || `sub_${Date.now()}`,
+        name,
+        code,
+        progress: 20,
+        completedTopics: 0,
+        totalTopics: topicsCount,
+        semester: 'current',
+        iconType: 'chip',
+        colorTheme: 'sky',
+      };
+      setSubjects((prev) => [sub, ...prev]);
+    }
+
+    if (subjectId) {
+      setSelectedSubjectId(subjectId);
+    }
   };
 
   const handleLogout = async () => {
     await logoutUser();
-    setCurrentUser(null);
+    resetUserState();
     setCurrentView('login');
   };
 
@@ -308,15 +480,22 @@ export const App: React.FC = () => {
     }
   }, [currentView]);
 
+  // Whenever view switches to 'readiness', ensure topics are loaded
+  useEffect(() => {
+    if (currentView === 'readiness' && topicsDS.length === 0) {
+      loadSubjectTopics(selectedSubjectId);
+    }
+  }, [currentView, selectedSubjectId]);
+
   const pendingTasksCount = tasks.filter((t) => t.status !== 'completed').length;
 
   const activeUserProfile: UserProfile = {
     id: currentUser?.id || 'usr_guest',
-    name: profileOverrides.name || currentUser?.name || 'Muthubalamurugan',
-    email: currentUser?.email || 'muthubalamurugan@gmail.com',
-    college: profileOverrides.college,
-    semester: profileOverrides.semester,
-    dailyStudyMinutes: profileOverrides.dailyStudyMinutes,
+    name: currentUser?.name || profileOverrides.name || 'Student',
+    email: currentUser?.email || 'student@example.com',
+    college: profileOverrides.college || 'Engineering College',
+    semester: profileOverrides.semester || 'Current Semester',
+    dailyStudyMinutes: currentUser?.daily_study_minutes || profileOverrides.dailyStudyMinutes || 180,
   };
 
   if (isAuthChecking) {
@@ -344,8 +523,8 @@ export const App: React.FC = () => {
         <div style={{ padding: '24px 20px', maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
           <LoginPage
             onNavigate={setCurrentView}
-            onLoginSuccess={(user) => {
-              setCurrentUser(user);
+            onLoginSuccess={async (user) => {
+              await loadUserData(user);
               setCurrentView('dashboard');
             }}
           />
@@ -354,8 +533,8 @@ export const App: React.FC = () => {
         <div style={{ padding: '24px 20px', maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
           <SignUpPage
             onNavigate={setCurrentView}
-            onSignUpSuccess={(user) => {
-              setCurrentUser(user);
+            onSignUpSuccess={async (user) => {
+              await loadUserData(user);
               setCurrentView('dashboard');
             }}
           />
@@ -433,10 +612,15 @@ export const App: React.FC = () => {
             {currentView === 'readiness' && (
               <ExamReadinessView
                 topics={topicsDS}
+                subjects={subjects}
                 onRateTopic={handleRateTopic}
                 onRateAllTopics={handleRateAllTopics}
                 onNavigate={setCurrentView}
                 selectedSubjectId={selectedSubjectId}
+                onSelectSubject={(subId) => {
+                  setSelectedSubjectId(subId);
+                  loadSubjectTopics(subId);
+                }}
               />
             )}
 
@@ -466,6 +650,9 @@ export const App: React.FC = () => {
         isOpen={isAddSubjectOpen}
         onClose={() => setIsAddSubjectOpen(false)}
         onAddSubject={handleAddSubject}
+        isPro={isProUser}
+        subjectsCount={subjects.length}
+        onOpenExamPass={() => setIsExamPassOpen(true)}
       />
 
       <AddTaskModal

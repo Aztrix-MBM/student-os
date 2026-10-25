@@ -15,6 +15,8 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     id: str
     auth_provider: str
+    is_pro: bool = False
+    pro_until: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

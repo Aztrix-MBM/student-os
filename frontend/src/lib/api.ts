@@ -13,11 +13,28 @@ export interface UserAuthResponse {
   email: string;
   daily_study_minutes: number;
   auth_provider: string;
+  is_pro?: boolean;
+  pro_until?: string | null;
   created_at: string;
   updated_at: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
+/**
+ * Helper to build auth headers.
+ * Attaches Authorization: Bearer <token> if student_os_jwt is saved in localStorage.
+ * Complements httpOnly cookie authentication for environments where cookies are restricted,
+ * blocked by browsers, or lost across origins.
+ */
+export function getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = { ...extraHeaders };
+  const token = localStorage.getItem('student_os_jwt');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export async function checkBackendHealth(): Promise<{
   ok: boolean;
@@ -53,7 +70,7 @@ export async function checkBackendHealth(): Promise<{
 }
 
 /**
- * Register a new user and receive httpOnly JWT cookie.
+ * Register a new user and receive httpOnly JWT cookie & token backup.
  */
 export async function registerUser(
   name: string,
@@ -82,6 +99,10 @@ export async function registerUser(
       return { ok: false, error: data.detail || 'Registration failed.' };
     }
 
+    if (data.token) {
+      localStorage.setItem('student_os_jwt', data.token);
+    }
+
     return { ok: true, user: data.user };
   } catch (err: any) {
     return { ok: false, error: err.message || 'Network error during registration.' };
@@ -89,7 +110,7 @@ export async function registerUser(
 }
 
 /**
- * Login user via email & password and receive httpOnly JWT cookie.
+ * Login user via email & password and receive httpOnly JWT cookie & token backup.
  */
 export async function loginUser(
   email: string,
@@ -111,6 +132,10 @@ export async function loginUser(
       return { ok: false, error: data.detail || 'Invalid email or password.' };
     }
 
+    if (data.token) {
+      localStorage.setItem('student_os_jwt', data.token);
+    }
+
     return { ok: true, user: data.user };
   } catch (err: any) {
     return { ok: false, error: err.message || 'Network error during login.' };
@@ -118,15 +143,15 @@ export async function loginUser(
 }
 
 /**
- * Fetch authenticated user details from /api/me using httpOnly cookie.
+ * Fetch authenticated user details from /api/me using httpOnly cookie + bearer token fallback.
  */
 export async function getMe(): Promise<UserAuthResponse | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/me`, {
       method: 'GET',
-      headers: {
+      headers: getAuthHeaders({
         'Accept': 'application/json',
-      },
+      }),
       credentials: 'include',
     });
 
@@ -142,18 +167,46 @@ export async function getMe(): Promise<UserAuthResponse | null> {
 }
 
 /**
- * Logout user and clear httpOnly cookie.
+ * Logout user, clear httpOnly cookie and localStorage JWT, and wipe CacheStorage & push subscription for shared lab PCs.
  */
 export async function logoutUser(): Promise<boolean> {
   try {
+    localStorage.removeItem('student_os_jwt');
     await fetch(`${API_BASE_URL}/api/auth/logout`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
-    return true;
   } catch (err) {
-    return false;
+    console.warn("Backend logout request failed:", err);
+  } finally {
+    localStorage.removeItem('student_os_jwt');
+    // 1. Wipe all Cache Storage entries to avoid data leakage on shared computers
+    if ('caches' in window) {
+      try {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+      } catch (cacheErr) {
+        console.warn("Cache cleanup failed on logout:", cacheErr);
+      }
+    }
+
+    // 2. Unsubscribe Web Push notifications
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg.pushManager) {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await sub.unsubscribe();
+          }
+        }
+      } catch (pushErr) {
+        console.warn("Push unsubscribe failed on logout:", pushErr);
+      }
+    }
   }
+  return true;
 }
 
 // ---------------------- PHASE 3 ACADEMIC CORE API CLIENT ----------------------
@@ -204,7 +257,7 @@ export async function fetchSubjects(): Promise<ApiSubject[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/subjects`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return [];
@@ -219,18 +272,21 @@ export async function createSubject(data: {
   code: string;
   semester?: string;
   color_theme?: string;
-}): Promise<ApiSubject | null> {
+}): Promise<{ ok: boolean; data?: ApiSubject; error?: string; status?: number }> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/subjects`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(data),
     });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
+    const json = await res.json();
+    if (!res.ok) {
+      return { ok: false, error: json.detail || 'Failed to create subject', status: res.status };
+    }
+    return { ok: true, data: json, status: res.status };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Network error while creating subject', status: 500 };
   }
 }
 
@@ -238,11 +294,49 @@ export async function deleteSubject(subjectId: string): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/subjects/${subjectId}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+export interface ApiUnitDetail {
+  id: string;
+  subject_id: string;
+  name: string;
+  order_no: number;
+  exam_weight: number;
+  topics: ApiTopicDetail[];
+}
+
+export interface ApiTopicDetail {
+  id: string;
+  unit_id: string;
+  name: string;
+  importance: number;
+  difficulty: number;
+  order_no: number;
+}
+
+export interface ApiSubjectDetail extends ApiSubject {
+  units: ApiUnitDetail[];
+  topics: ApiTopicDetail[];
+}
+
+export async function fetchSubjectDetails(subjectId: string): Promise<ApiSubjectDetail | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/subjects/${subjectId}`, {
+      method: 'GET',
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
+      credentials: 'include',
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
   }
 }
 
@@ -253,7 +347,7 @@ export async function fetchExams(subjectId?: string): Promise<ApiExam[]> {
       : `${API_BASE_URL}/api/exams`;
     const res = await fetch(url, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return [];
@@ -273,7 +367,7 @@ export async function createExam(data: {
   try {
     const res = await fetch(`${API_BASE_URL}/api/exams`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(data),
     });
@@ -288,6 +382,7 @@ export async function deleteExam(examId: string): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/exams/${examId}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
     return res.ok;
@@ -305,7 +400,7 @@ export async function fetchTasks(filters?: { status?: string; subject_id?: strin
 
     const res = await fetch(`${API_BASE_URL}/api/tasks${qs}`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return [];
@@ -326,7 +421,7 @@ export async function createTask(data: {
   try {
     const res = await fetch(`${API_BASE_URL}/api/tasks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(data),
     });
@@ -341,7 +436,7 @@ export async function updateTask(taskId: string, updates: Partial<ApiTask>): Pro
   try {
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(updates),
     });
@@ -356,6 +451,7 @@ export async function deleteTask(taskId: string): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
     return res.ok;
@@ -399,6 +495,7 @@ export async function getSyllabusLimits(): Promise<SyllabusLimits | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/syllabus/limits`, {
       method: 'GET',
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return null;
@@ -411,19 +508,26 @@ export async function getSyllabusLimits(): Promise<SyllabusLimits | null> {
 export async function extractSyllabusText(
   text: string,
   subject_id?: string
-): Promise<{ ok: boolean; data?: SyllabusDraftResponse; error?: string }> {
+): Promise<{ ok: boolean; data?: SyllabusDraftResponse; error?: string; status?: number }> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/syllabus/extract`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ text, subject_id }),
     });
     const json = await res.json();
     if (!res.ok) {
-      return { ok: false, error: json.detail || 'Failed to extract syllabus.' };
+      if (res.status === 401) {
+        return {
+          ok: false,
+          error: 'Your session has expired. Please log in again to extract syllabus units.',
+          status: 401,
+        };
+      }
+      return { ok: false, error: json.detail || 'Failed to extract syllabus.', status: res.status };
     }
-    return { ok: true, data: json };
+    return { ok: true, data: json, status: res.status };
   } catch (err: any) {
     return { ok: false, error: err.message || 'Network error during syllabus extraction.' };
   }
@@ -432,7 +536,7 @@ export async function extractSyllabusText(
 export async function uploadSyllabusPdf(
   file: File,
   subject_id?: string
-): Promise<{ ok: boolean; data?: SyllabusDraftResponse; error?: string }> {
+): Promise<{ ok: boolean; data?: SyllabusDraftResponse; error?: string; status?: number }> {
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -442,14 +546,22 @@ export async function uploadSyllabusPdf(
 
     const res = await fetch(`${API_BASE_URL}/api/syllabus/upload`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       credentials: 'include',
       body: formData,
     });
     const json = await res.json();
     if (!res.ok) {
-      return { ok: false, error: json.detail || 'Failed to upload syllabus PDF.' };
+      if (res.status === 401) {
+        return {
+          ok: false,
+          error: 'Your session has expired. Please log in again to upload syllabus.',
+          status: 401,
+        };
+      }
+      return { ok: false, error: json.detail || 'Failed to upload syllabus PDF.', status: res.status };
     }
-    return { ok: true, data: json };
+    return { ok: true, data: json, status: res.status };
   } catch (err: any) {
     return { ok: false, error: err.message || 'Network error during PDF upload.' };
   }
@@ -459,19 +571,26 @@ export async function confirmSyllabus(
   subject_id: string,
   units: SyllabusUnitDraft[],
   exam_id?: string
-): Promise<{ ok: boolean; data?: any; error?: string }> {
+): Promise<{ ok: boolean; data?: any; error?: string; status?: number }> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/syllabus/confirm`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ subject_id, units, exam_id }),
     });
     const json = await res.json();
     if (!res.ok) {
-      return { ok: false, error: json.detail || 'Failed to save confirmed syllabus.' };
+      if (res.status === 401) {
+        return {
+          ok: false,
+          error: 'Your session has expired. Please log in again to save syllabus.',
+          status: 401,
+        };
+      }
+      return { ok: false, error: json.detail || 'Failed to save confirmed syllabus.', status: res.status };
     }
-    return { ok: true, data: json };
+    return { ok: true, data: json, status: res.status };
   } catch (err: any) {
     return { ok: false, error: err.message || 'Network error during syllabus confirmation.' };
   }
@@ -540,7 +659,7 @@ export async function submitTopicReview(
   try {
     const res = await fetch(`${API_BASE_URL}/api/topics/${topicId}/review`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({
         rating,
@@ -559,7 +678,7 @@ export async function fetchExamReadiness(examId: string): Promise<ApiExamReadine
   try {
     const res = await fetch(`${API_BASE_URL}/api/exams/${examId}/readiness`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return null;
@@ -577,7 +696,7 @@ export async function logStudySession(
   try {
     const res = await fetch(`${API_BASE_URL}/api/study-sessions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({
         duration_minutes: durationMinutes,
@@ -596,7 +715,7 @@ export async function fetchStudySessions(limit: number = 20): Promise<ApiStudySe
   try {
     const res = await fetch(`${API_BASE_URL}/api/study-sessions?limit=${limit}`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return [];
@@ -658,7 +777,7 @@ export async function fetchTodayPlan(): Promise<ApiTodayPlan | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/today`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return null;
@@ -672,7 +791,7 @@ export async function acceptRecommendation(recId: string): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/recommendations/${recId}/accept`, {
       method: 'POST',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     return res.ok;
@@ -685,7 +804,7 @@ export async function dismissRecommendation(recId: string): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/recommendations/${recId}/dismiss`, {
       method: 'POST',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     return res.ok;
@@ -721,7 +840,7 @@ export async function fetchStreak(): Promise<ApiStreak | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/retention/streak`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return null;
@@ -735,7 +854,7 @@ export async function fetchNotificationPreferences(): Promise<ApiNotificationPre
   try {
     const res = await fetch(`${API_BASE_URL}/api/notifications/preferences`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return null;
@@ -751,7 +870,7 @@ export async function updateNotificationPreferences(
   try {
     const res = await fetch(`${API_BASE_URL}/api/notifications/preferences`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(updates),
     });
@@ -770,7 +889,7 @@ export async function subscribePush(sub: {
   try {
     const res = await fetch(`${API_BASE_URL}/api/notifications/subscribe`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(sub),
     });
@@ -784,7 +903,7 @@ export async function unsubscribePush(endpoint: string): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/notifications/unsubscribe?endpoint=${encodeURIComponent(endpoint)}`, {
       method: 'DELETE',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     return res.ok;
@@ -797,7 +916,7 @@ export async function fetchMorningDigest(): Promise<any | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/notifications/morning-digest`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return null;
@@ -811,7 +930,7 @@ export async function testSendNotification(): Promise<{ ok: boolean; message: st
   try {
     const res = await fetch(`${API_BASE_URL}/api/notifications/test-send`, {
       method: 'POST',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) return { ok: false, message: 'Failed to trigger test notification.' };
@@ -828,7 +947,7 @@ export async function deleteAccount(): Promise<{ ok: boolean; message: string }>
   try {
     const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
       method: 'DELETE',
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
     });
     if (!res.ok) {
@@ -839,6 +958,91 @@ export async function deleteAccount(): Promise<{ ok: boolean; message: string }>
     return { ok: true, message: data.message || 'Account successfully deleted.' };
   } catch (err: any) {
     return { ok: false, message: err.message || 'Network error deleting account.' };
+  }
+}
+
+// ---------------------- PAYMENTS & PRO PASS API CLIENT ----------------------
+
+export interface PlanInfo {
+  id: string;
+  name: string;
+  price: number;
+  duration_days: number;
+  duration_label: string;
+  features: string[];
+}
+
+export interface PaymentConfig {
+  configured: boolean;
+  upi_id: string;
+  payee_name: string;
+  plans: PlanInfo[];
+}
+
+export interface PaymentRecord {
+  id: string;
+  user_id?: string | null;
+  plan: string;
+  amount: number;
+  utr: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  reviewed_at?: string | null;
+}
+
+export async function getPaymentConfig(): Promise<{ ok: boolean; data?: PaymentConfig; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/payments/config`, {
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
+    });
+    if (!res.ok) {
+      return { ok: false, error: `Failed to load payment config (${res.status})` };
+    }
+    const data = await res.json();
+    return { ok: true, data };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Network error fetching payment config.' };
+  }
+}
+
+export async function submitPayment(
+  plan: string,
+  utr: string
+): Promise<{ ok: boolean; data?: PaymentRecord; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/payments`, {
+      method: 'POST',
+      headers: getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }),
+      credentials: 'include',
+      body: JSON.stringify({ plan, utr }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { ok: false, error: err.detail || `Payment submission failed (${res.status}).` };
+    }
+    const data = await res.json();
+    return { ok: true, data };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Network error submitting payment.' };
+  }
+}
+
+export async function getMyPayments(): Promise<{ ok: boolean; data?: PaymentRecord[]; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/payments/my`, {
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      return { ok: false, error: `Failed to fetch payment history (${res.status})` };
+    }
+    const data = await res.json();
+    return { ok: true, data };
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Network error fetching payments.' };
   }
 }
 

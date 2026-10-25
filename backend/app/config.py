@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./student_os.db"
     JWT_SECRET: str = "student-os-super-secret-jwt-key-2026-phase-1"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_MINUTES: int = 15
+    ACCESS_TOKEN_MINUTES: int = 60 * 24 * 7  # 7 days
     REFRESH_TOKEN_DAYS: int = 14
     FRONTEND_ORIGINS: str = "http://127.0.0.1:5173,http://localhost:5173"
     APP_ENV: str = "development"
@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     SYLLABUS_DAILY_LIMIT_PER_USER: int = 5
     SYLLABUS_MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB
     SYLLABUS_MAX_PAGES: int = 30
+
+    # Payments & UPI (Empty by default; requires explicit configuration)
+    UPI_ID: str = ""
+    UPI_PAYEE_NAME: str = ""
+    ADMIN_EMAILS: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

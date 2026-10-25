@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from app.schemas.user import UserResponse
 
@@ -26,5 +27,6 @@ class UserLogin(BaseModel):
 class AuthResponse(BaseModel):
     message: str
     user: UserResponse
+    token: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

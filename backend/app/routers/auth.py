@@ -59,7 +59,8 @@ def register_user(
 
     return AuthResponse(
         message="Registration successful.",
-        user=UserResponse.model_validate(user)
+        user=UserResponse.model_validate(user),
+        token=token
     )
 
 
@@ -107,7 +108,8 @@ def login_user(
 
     return AuthResponse(
         message="Login successful.",
-        user=UserResponse.model_validate(user)
+        user=UserResponse.model_validate(user),
+        token=token
     )
 
 
@@ -158,8 +160,12 @@ def delete_authenticated_user(
     from app.models.learning import TopicReview, StudySession
     from app.models.planner import DailyPlan, Recommendation
     from app.models.notifications import PushSubscription, NotificationPreference
+    from app.models.payment import Payment
 
-    # 1. Explicitly wipe user records across all tables
+    # 1. Update payments: keep amount/UTR/date, set user_id to None
+    db.query(Payment).filter(Payment.user_id == user_id).update({Payment.user_id: None}, synchronize_session=False)
+
+    # 2. Explicitly wipe user records across all tables
     db.query(TopicReview).filter(TopicReview.user_id == user_id).delete(synchronize_session=False)
     db.query(StudySession).filter(StudySession.user_id == user_id).delete(synchronize_session=False)
     db.query(Recommendation).filter(Recommendation.user_id == user_id).delete(synchronize_session=False)
@@ -168,12 +174,12 @@ def delete_authenticated_user(
     db.query(NotificationPreference).filter(NotificationPreference.user_id == user_id).delete(synchronize_session=False)
     db.query(Task).filter(Task.user_id == user_id).delete(synchronize_session=False)
 
-    # 2. Delete subjects (cascades to units, topics, and exams)
+    # 3. Delete subjects (cascades to units, topics, and exams)
     subjects = db.query(Subject).filter(Subject.user_id == user_id).all()
     for s in subjects:
         db.delete(s)
 
-    # 3. Delete user row
+    # 4. Delete user row
     db.delete(current_user)
     db.commit()
 

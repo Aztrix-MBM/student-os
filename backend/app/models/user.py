@@ -21,9 +21,21 @@ class User(Base):
     password_hash = Column(String(255), nullable=True)
     auth_provider = Column(String(50), nullable=False, default="local")
     daily_study_minutes = Column(Integer, nullable=False, default=180)
+    pro_until = Column(DateTime(timezone=True), nullable=True)
+    syllabus_imports_count = Column(Integer, nullable=False, default=0)
 
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    @property
+    def is_pro(self) -> bool:
+        if self.pro_until is None:
+            return False
+        now = datetime.now(timezone.utc)
+        pu = self.pro_until
+        if pu.tzinfo is None:
+            pu = pu.replace(tzinfo=timezone.utc)
+        return pu > now
 
     def __repr__(self) -> str:
         return f"<User {self.email} ({self.id})>"

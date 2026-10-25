@@ -28,21 +28,30 @@ import {
 
 interface SyllabusAIViewProps {
   onNavigate: (view: ScreenView) => void;
-  onAddExtractedSubject?: (name: string, code: string, unitsCount: number, topicsCount: number) => void;
+  onAddExtractedSubject?: (
+    subjectId: string,
+    name: string,
+    code: string,
+    unitsCount: number,
+    topicsCount: number,
+    unitsTree: SyllabusUnitDraft[]
+  ) => void;
 }
 
 export const SyllabusAIView: React.FC<SyllabusAIViewProps> = ({ onNavigate, onAddExtractedSubject }) => {
   const [syllabusText, setSyllabusText] = useState(
 `ANNA UNIVERSITY CHENNAI : : B.E. COMPUTER SCIENCE AND ENGINEERING
 CS3351 DATA STRUCTURES
-UNIT I LINEAR DATA STRUCTURES
-Introduction to Data Structures – Arrays – Linked List Implementation – Singly Linked List – Doubly Linked List – Circular Linked List – Applications of Linked Lists – Stack Implementation – Queue Implementation.
-UNIT II TREE STRUCTURES
-Tree Traversals – Binary Trees – Binary Search Trees (BST) – Operations on BST – AVL Trees – Rotations and Balancing – B-Trees – Priority Queues.
-UNIT III GRAPH ALGORITHMS
-Graph Representations – Breadth First Search (BFS) – Depth First Search (DFS) – Topological Sort – Shortest Path Algorithms: Dijkstra's Algorithm – Minimum Spanning Tree: Prim's and Kruskal's Algorithms.
-UNIT IV SORTING AND HASHING
-Sorting Algorithms: Insertion Sort, Quick Sort, Merge Sort, Heap Sort – Hashing: Hash Functions, Separate Chaining, Open Addressing.`
+UNIT I LINEAR DATA STRUCTURES - LIST
+Abstract Data Types (ADTs) – List ADT – Array-based implementation – Linked list implementation – Singly linked lists – Circularly linked lists – Doubly-linked lists – Applications of lists – Polynomial Addition.
+UNIT II LINEAR DATA STRUCTURES - STACKS, QUEUES
+Stack ADT – Operations – Applications: Evaluating arithmetic expressions, Conversion of Infix to Postfix expression – Queue ADT – Operations – Circular Queue – Priority Queue – Deque – Applications of Queues.
+UNIT III NON LINEAR DATA STRUCTURES - TREES
+Tree ADT – Tree Traversals – Binary Tree ADT – Expression Trees – Binary Search Tree ADT – AVL Trees – Priority Queue (Heaps) – Binary Heap – B-Trees.
+UNIT IV NON LINEAR DATA STRUCTURES - GRAPHS
+Definition – Representation of Graphs – Breadth-first traversal – Depth-first traversal – Topological Sort – Shortest Path Algorithms: Dijkstra's algorithm – Minimum Spanning Tree: Prim's and Kruskal's algorithms.
+UNIT V SEARCHING, SORTING AND HASHING TECHNIQUES
+Searching: Linear Search – Binary Search. Sorting: Bubble Sort – Selection Sort – Insertion Sort – Radix Sort – Quick Sort – Merge Sort. Hashing: Hash Functions – Separate Chaining – Open Addressing – Rehashing.`
   );
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -179,18 +188,18 @@ Sorting Algorithms: Insertion Sort, Quick Sort, Merge Sort, Heap Sort – Hashin
 
     // Create new subject if 'new' selected
     if (targetSubjectId === 'new') {
-      const created = await createSubject({
+      const createdRes = await createSubject({
         name: newSubjectName.trim() || 'Extracted Subject',
         code: newSubjectCode.trim() || 'SUB101',
         semester: 'Semester 1',
         color_theme: 'lavender',
       });
-      if (!created) {
+      if (!createdRes.ok || !createdRes.data) {
         setIsConfirming(false);
-        setErrorMessage('Failed to create academic subject for this syllabus.');
+        setErrorMessage(createdRes.error || 'Failed to create academic subject for this syllabus.');
         return;
       }
-      targetSubjectId = created.id;
+      targetSubjectId = createdRes.data.id;
     }
 
     const res = await confirmSyllabus(targetSubjectId, unitsTree);
@@ -202,12 +211,19 @@ Sorting Algorithms: Insertion Sort, Quick Sort, Merge Sort, Heap Sort – Hashin
     }
 
     const totalTopics = unitsTree.reduce((acc, u) => acc + u.topics.length, 0);
+    const chosenName = selectedSubjectId !== 'new'
+      ? (existingSubjects.find(s => s.id === selectedSubjectId)?.name || newSubjectName)
+      : newSubjectName;
+    const chosenCode = selectedSubjectId !== 'new'
+      ? (existingSubjects.find(s => s.id === selectedSubjectId)?.code || newSubjectCode)
+      : newSubjectCode;
+
     if (onAddExtractedSubject) {
-      onAddExtractedSubject(newSubjectName, newSubjectCode, unitsTree.length, totalTopics);
+      onAddExtractedSubject(targetSubjectId, chosenName, chosenCode, unitsTree.length, totalTopics, unitsTree);
     }
 
-    alert(`🎉 Successfully saved ${unitsTree.length} units and ${totalTopics} topics into your Academic Core!`);
-    onNavigate('subjects');
+    alert(`🎉 Successfully saved ${unitsTree.length} units and ${totalTopics} topics into your Academic Core! Opening Exam Readiness to rate your topics.`);
+    onNavigate('readiness');
   };
 
   return (
@@ -257,13 +273,35 @@ Sorting Algorithms: Insertion Sort, Quick Sort, Merge Sort, Heap Sort – Hashin
             color: 'var(--coral-text)',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
             fontSize: '13px',
             fontWeight: 600,
           }}
         >
-          <AlertCircle size={18} />
-          <span>{errorMessage}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1', minWidth: '220px' }}>
+            <AlertCircle size={18} style={{ flexShrink: 0 }} />
+            <span>{errorMessage}</span>
+          </div>
+          {(errorMessage.toLowerCase().includes('log in') ||
+            errorMessage.toLowerCase().includes('session') ||
+            errorMessage.toLowerCase().includes('authentication') ||
+            errorMessage.toLowerCase().includes('cookie')) && (
+            <button
+              type="button"
+              onClick={() => onNavigate('login')}
+              className="clay-btn clay-btn-dark"
+              style={{
+                height: '32px',
+                padding: '0 14px',
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Log In Now
+            </button>
+          )}
         </div>
       )}
 

@@ -12,6 +12,7 @@ from app.routers import (
     learning_router,
     today_router,
     retention_router,
+    payments_router,
 )
 
 
@@ -87,6 +88,7 @@ app.include_router(syllabus_router)
 app.include_router(learning_router)
 app.include_router(today_router)
 app.include_router(retention_router)
+app.include_router(payments_router)
 
 
 @app.get("/")

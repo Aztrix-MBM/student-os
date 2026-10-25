@@ -165,6 +165,14 @@ def confirm_syllabus(
     - Enforces strict multi-tenant ownership on subject and exam.
     - Automatically links newly created topics to the specified exam if provided.
     """
+    # Enforce free plan limit on syllabus imports
+    if not current_user.is_pro:
+        if (current_user.syllabus_imports_count or 0) >= 1:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Free plan limit reached: maximum 1 syllabus import. Upgrade to Pro for unlimited imports."
+            )
+
     # 1. Verify subject ownership (404 if not found or cross-user)
     subject = db.scalars(
         select(Subject).where(Subject.id == payload.subject_id, Subject.user_id == current_user.id)
@@ -228,6 +236,7 @@ def confirm_syllabus(
                 insert(exam_topics).values(exam_id=exam.id, topic_id=t_id)
             )
 
+    current_user.syllabus_imports_count = (current_user.syllabus_imports_count or 0) + 1
     db.commit()
 
     return SyllabusConfirmResponse(

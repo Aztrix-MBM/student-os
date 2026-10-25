@@ -93,7 +93,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   useEffect(() => {
     loadPlan();
-  }, []);
+  }, [user.id]);
 
   // Handle recommendation dismiss
   const handleDismissRec = async (recId: string, itemId: string, e: React.MouseEvent) => {
@@ -497,7 +497,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           style={{ padding: '20px 22px', cursor: 'pointer' }}
         >
           <div style={{ fontSize: '32px', fontWeight: 800, color: '#2A79E2', lineHeight: 1 }}>
-            {todayPlan?.upcoming_exams ? todayPlan.upcoming_exams.length : 2}
+            {todayPlan?.upcoming_exams ? todayPlan.upcoming_exams.length : 0}
           </div>
           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '8px' }}>
             Upcoming Exams
@@ -511,7 +511,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           style={{ padding: '20px 22px', cursor: 'pointer' }}
         >
           <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--mint-text)', lineHeight: 1 }}>
-            {todayPlan?.candidate_count ? `${Math.min(100, Math.round((completedPlanIds.size / Math.max(1, activePlanItems.length)) * 100))}%` : '78%'}
+            {todayPlan?.candidate_count ? `${Math.min(100, Math.round((completedPlanIds.size / Math.max(1, activePlanItems.length)) * 100))}%` : '0%'}
           </div>
           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '8px' }}>
             Today's Plan Done
@@ -735,14 +735,44 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {todayPlan ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {activePlanItems.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)' }}>
-                  <CheckCircle2 size={36} color="#179354" style={{ margin: '0 auto 10px auto' }} />
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    All done for today!
-                  </div>
-                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                    Great consistency! Check Exam Readiness or relax.
-                  </div>
+                <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+                  {subjectsCount === 0 ? (
+                    <>
+                      <Sparkles size={36} color="#0F766E" style={{ margin: '0 auto 12px auto' }} />
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        Welcome! Let's set up your semester
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '380px', margin: '6px auto 16px auto', lineHeight: 1.5 }}>
+                        Add your semester subjects or extract a syllabus PDF to generate your personalized AI study schedule.
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={onOpenAddSubject}
+                          className="clay-btn clay-btn-dark"
+                          style={{ fontSize: '12px', padding: '8px 18px', borderRadius: '12px' }}
+                        >
+                          + Add Subject
+                        </button>
+                        <button
+                          onClick={() => onNavigate('syllabus-ai')}
+                          className="clay-btn clay-btn-light"
+                          style={{ fontSize: '12px', padding: '8px 18px', borderRadius: '12px' }}
+                        >
+                          Syllabus AI
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={36} color="#179354" style={{ margin: '0 auto 10px auto' }} />
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        All done for today!
+                      </div>
+                      <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                        Great consistency! Check Exam Readiness or relax.
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 activePlanItems.map((item) => {
@@ -903,8 +933,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
             </div>
+          ) : schedule.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+              <p style={{ fontSize: '13px', margin: 0 }}>No study tasks scheduled yet.</p>
+            </div>
           ) : (
-            /* Fallback to Mock Schedule if offline or unauthenticated */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
               {schedule.map((item, index) => {
                 const isLast = index === schedule.length - 1;

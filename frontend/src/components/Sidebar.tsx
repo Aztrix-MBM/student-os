@@ -38,9 +38,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className="clay-card hidden lg:flex flex-col justify-between"
+      className="clay-card sidebar-desktop"
       style={{
         width: '260px',
+
         minWidth: '260px',
         padding: '24px 16px',
         height: 'calc(100vh - 40px)',

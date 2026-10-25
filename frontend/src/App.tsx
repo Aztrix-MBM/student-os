@@ -20,6 +20,7 @@ import { PrototypeHub } from './prototype/PrototypeHub';
 import { AddSubjectModal } from './components/AddSubjectModal';
 import { AddTaskModal } from './components/AddTaskModal';
 import { SettingsModal } from './components/SettingsModal';
+import { MobileDrawer } from './components/MobileDrawer';
 import {
   getMe,
   logoutUser,
@@ -357,6 +358,7 @@ export const App: React.FC = () => {
       ) : (
         /* Protected Authenticated App Shell */
         <div
+          className="app-shell-container"
           style={{
             display: 'flex',
             maxWidth: '1520px',
@@ -474,6 +476,17 @@ export const App: React.FC = () => {
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         onSaveProfile={handleSaveProfile}
         onLogout={handleLogout}
+      />
+
+      {/* Mobile / Tablet Responsive Navigation Drawer */}
+      <MobileDrawer
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        onLogout={handleLogout}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        userName={activeUserProfile.name}
       />
     </div>
   );

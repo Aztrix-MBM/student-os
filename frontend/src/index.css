@@ -420,3 +420,59 @@ button, input, select, textarea {
     box-shadow: none;
   }
 }
+
+/* Responsive Layout Utilities (Phase 9 Polish & Resilience) */
+.sidebar-desktop {
+  display: flex !important;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.mobile-menu-trigger {
+  display: none !important;
+}
+
+.hide-on-tablet {
+  display: inline;
+}
+
+.hide-on-mobile {
+  display: inline;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1024px) {
+  .sidebar-desktop {
+    display: none !important;
+  }
+  .mobile-menu-trigger {
+    display: flex !important;
+  }
+  .app-shell-container {
+    padding: 12px 10px !important;
+  }
+  .hide-on-tablet {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+  .nav-header-bar {
+    padding: 10px 14px !important;
+    gap: 8px !important;
+  }
+}
+

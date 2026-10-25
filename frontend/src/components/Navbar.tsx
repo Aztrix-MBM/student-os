@@ -71,33 +71,34 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header
-      className="clay-card-flat"
+      className="clay-card-flat nav-header-bar"
       style={{
-        padding: '12px 24px',
+        padding: '12px 20px',
         marginBottom: '20px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '16px',
+        gap: '12px',
         position: 'sticky',
         top: '12px',
         zIndex: 15,
       }}
     >
       {/* Mobile Menu Button & Search */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, maxWidth: '520px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '140px', maxWidth: '420px' }}>
         <button
           onClick={onToggleMobileMenu}
-          className="clay-btn-light lg:hidden"
-          style={{ width: '42px', height: '42px', padding: 0, borderRadius: '12px' }}
-          aria-label="Toggle menu"
+          className="clay-btn-light mobile-menu-trigger"
+          style={{ width: '40px', height: '40px', padding: 0, borderRadius: '12px', flexShrink: 0 }}
+          aria-label="Toggle navigation menu"
+          title="Open menu"
         >
-          <Menu size={20} />
+          <Menu size={19} />
         </button>
 
         <div style={{ position: 'relative', width: '100%' }}>
           <Search
-            size={18}
+            size={17}
             style={{
               position: 'absolute',
               left: '14px',
@@ -109,65 +110,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           <input
             type="text"
             placeholder="Search subjects, topics, exams..."
-            className="clay-input"
+            className="clay-input search-bar-input"
             style={{
-              paddingLeft: '42px',
-              height: '42px',
-              fontSize: '14px',
+              paddingLeft: '40px',
+              height: '40px',
+              fontSize: '13px',
               borderRadius: '9999px',
+              width: '100%',
             }}
           />
         </div>
       </div>
 
-      {/* Screen Views Quick Nav Pills (MVP Focus) */}
-      <div className="hidden xl:flex items-center gap-2" style={{ overflowX: 'auto', padding: '2px' }}>
-        <button
-          onClick={() => onNavigate('dashboard')}
-          className={`clay-btn ${currentView === 'dashboard' ? 'clay-btn-dark' : 'clay-btn-light'}`}
-          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
-        >
-          Today
-        </button>
-        <button
-          onClick={() => onNavigate('subjects')}
-          className={`clay-btn ${currentView === 'subjects' ? 'clay-btn-dark' : 'clay-btn-light'}`}
-          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
-        >
-          Subjects
-        </button>
-        <button
-          onClick={() => onNavigate('tasks')}
-          className={`clay-btn ${currentView === 'tasks' ? 'clay-btn-dark' : 'clay-btn-light'}`}
-          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
-        >
-          Tasks
-        </button>
-        <button
-          onClick={() => onNavigate('readiness')}
-          className={`clay-btn ${currentView === 'readiness' ? 'clay-btn-dark' : 'clay-btn-light'}`}
-          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
-        >
-          Readiness
-        </button>
-        <button
-          onClick={() => onNavigate('syllabus-ai')}
-          className={`clay-btn ${currentView === 'syllabus-ai' ? 'clay-btn-dark' : 'clay-btn-light'}`}
-          style={{ height: '36px', padding: '6px 14px', fontSize: '12px' }}
-        >
-          Syllabus AI
-        </button>
-        <button
-          onClick={() => onNavigate('prototype')}
-          className={`clay-btn ${currentView === 'prototype' ? 'clay-btn-dark' : 'clay-btn-light'}`}
-          style={{ height: '36px', padding: '6px 14px', fontSize: '12px', opacity: 0.85 }}
-        >
-          Prototype Lab
-        </button>
-      </div>
-
       {/* Right Controls: Streak, PWA, Health & User */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+
         {/* Soft Streak Flame Badge (Phase 8 Specification) */}
         <div
           className="clay-card-flat"
@@ -216,7 +173,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="Install Student OS as native PWA App on your device"
           >
             <Download size={14} />
-            <span className="hidden md:inline">Install App</span>
+            <span className="hide-on-mobile">Install App</span>
           </button>
         )}
 
@@ -248,7 +205,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               boxShadow: backendHealth.ok ? '0 0 6px #179354' : 'none',
             }}
           />
-          <span className="hidden sm:inline">
+          <span className="hide-on-tablet">
             {backendHealth.ok ? 'API Live (v0.1.0)' : 'API Connecting'}
           </span>
         </div>

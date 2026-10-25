@@ -1,10 +1,11 @@
-const CACHE_NAME = 'student-os-cache-v1';
+// Student OS Service Worker (Phase 8 & 9 Resilient PWA)
+// Increment version to bust previous cache and activate responsive updates immediately
+const CACHE_NAME = 'student-os-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/favicon.svg',
-  '/icons.svg',
   '/clay_mountain_banner.jpg',
   '/clay_study_desk.jpg',
 ];
@@ -21,13 +22,14 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate: Clean up previous caches
+// Activate: Clean up previous caches immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('[ServiceWorker] Deleting old cache:', key);
             return caches.delete(key);
           }
         })
@@ -37,11 +39,11 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: Network-First for APIs, Stale-While-Revalidate/Cache-First for Static
+// Fetch: Network-First strategy to ensure latest UI updates are always served
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // API calls are strictly Network-First
+  // 1. API calls are strictly Network-First with offline JSON fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -54,26 +56,47 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets: Cache-First with network fallback
+  // 2. Vite HMR and dynamic dev modules: strictly Network-Only
+  if (
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.includes('node_modules') ||
+    url.pathname.includes('hot-update')
+  ) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // 3. Navigation / HTML pages: Network-First with offline cache fallback
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request) || caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // 4. Static assets (images, fonts): Stale-While-Revalidate
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((networkResponse) => {
-        if (
-          networkResponse &&
-          networkResponse.status === 200 &&
-          networkResponse.type === 'basic' &&
-          event.request.method === 'GET'
-        ) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      });
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
     })
   );
 });
@@ -88,50 +111,45 @@ self.addEventListener('push', (event) => {
     data: { url: '/' },
   };
 
-  if (event.data) {
-    try {
-      const parsed = event.data.json();
-      payload = { ...payload, ...parsed };
-    } catch {
-      payload.body = event.data.text() || payload.body;
+  try {
+    if (event.data) {
+      payload = { ...payload, ...event.data.json() };
+    }
+  } catch {
+    if (event.data) {
+      payload.body = event.data.text();
     }
   }
 
-  const options = {
-    body: payload.body,
-    icon: payload.icon || '/favicon.svg',
-    badge: payload.badge || '/favicon.svg',
-    data: payload.data || { url: '/' },
-    vibrate: [100, 50, 100],
-    actions: [
-      { action: 'open', title: 'Open Today Plan' },
-      { action: 'dismiss', title: 'Dismiss' },
-    ],
-  };
-
-  event.waitUntil(self.registration.showNotification(payload.title, options));
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: payload.icon || '/favicon.svg',
+      badge: payload.badge || '/favicon.svg',
+      tag: 'student-os-notification',
+      renotify: true,
+      data: payload.data || { url: '/' },
+    })
+  );
 });
 
-// Notification Click: Focus open tab or open window
+// Notification Click: Focus existing client or open app
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-
-  if (event.action === 'dismiss') {
-    return;
-  }
-
   const targetUrl = event.notification.data?.url || '/';
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url && 'focus' in client) {
-          return client.focus();
+    clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windowClients) => {
+        for (const client of windowClients) {
+          if (client.url.includes(targetUrl) && 'focus' in client) {
+            return client.focus();
+          }
         }
-      }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
-      }
-    })
+        if (clients.openWindow) {
+          return clients.openWindow(targetUrl);
+        }
+      })
   );
 });

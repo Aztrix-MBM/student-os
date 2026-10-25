@@ -21,6 +21,8 @@ import { AddSubjectModal } from './components/AddSubjectModal';
 import { AddTaskModal } from './components/AddTaskModal';
 import { SettingsModal } from './components/SettingsModal';
 import { MobileDrawer } from './components/MobileDrawer';
+import { PrivacyModal } from './components/PrivacyModal';
+import { ExamPassModal } from './components/ExamPassModal';
 import {
   getMe,
   logoutUser,
@@ -55,6 +57,9 @@ export const App: React.FC = () => {
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState<boolean>(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState<boolean>(false);
+  const [isExamPassOpen, setIsExamPassOpen] = useState<boolean>(false);
+  const [isProUser, setIsProUser] = useState<boolean>(false);
 
   // Customizable Student Profile Overrides
   const [profileOverrides, setProfileOverrides] = useState<{
@@ -374,6 +379,8 @@ export const App: React.FC = () => {
             onNavigate={setCurrentView}
             onLogout={handleLogout}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenExamPass={() => setIsExamPassOpen(true)}
+            onOpenPrivacy={() => setIsPrivacyOpen(true)}
             userName={activeUserProfile.name}
           />
 
@@ -476,6 +483,16 @@ export const App: React.FC = () => {
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         onSaveProfile={handleSaveProfile}
         onLogout={handleLogout}
+        onOpenPrivacy={() => setIsPrivacyOpen(true)}
+        onOpenExamPass={() => setIsExamPassOpen(true)}
+        onAccountDeleted={() => {
+          setCurrentUser(null);
+          setSubjects([]);
+          setTasks([]);
+          setSchedule([]);
+          setTopicsDS([]);
+          setCurrentView('dashboard');
+        }}
       />
 
       {/* Mobile / Tablet Responsive Navigation Drawer */}
@@ -486,7 +503,26 @@ export const App: React.FC = () => {
         onNavigate={setCurrentView}
         onLogout={handleLogout}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenExamPass={() => setIsExamPassOpen(true)}
+        onOpenPrivacy={() => setIsPrivacyOpen(true)}
         userName={activeUserProfile.name}
+      />
+
+      {/* Phase 9 Privacy & Terms Modal */}
+      <PrivacyModal
+        isOpen={isPrivacyOpen}
+        onClose={() => setIsPrivacyOpen(false)}
+        onOpenDeleteAccount={() => setIsSettingsOpen(true)}
+      />
+
+      {/* Phase 9 Semester Exam Pass UPI Modal */}
+      <ExamPassModal
+        isOpen={isExamPassOpen}
+        onClose={() => setIsExamPassOpen(false)}
+        isPro={isProUser}
+        onActivated={(planName) => {
+          setIsProUser(true);
+        }}
       />
     </div>
   );

@@ -145,20 +145,61 @@ export const SubjectsView: React.FC<SubjectsViewProps> = ({
         </div>
       </div>
 
-      {/* Grid of Subject Clay Cards matching reference panel 5 */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '20px',
-        }}
-      >
-        {filteredSubjects.map((sub) => {
-          const colors = getColorClasses(sub.colorTheme);
-          return (
-            <div
-              key={sub.id}
-              className="clay-card"
+      {/* Grid of Subject Clay Cards or Friendly Empty State */}
+      {filteredSubjects.length === 0 ? (
+        <div
+          className="clay-card-flat"
+          style={{
+            padding: '48px 24px',
+            textAlign: 'center',
+            borderRadius: '24px',
+          }}
+        >
+          <div
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '9999px',
+              backgroundColor: 'var(--sky-bg)',
+              color: 'var(--sky-text)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px auto',
+              border: '1px solid var(--sky-border)',
+            }}
+          >
+            <BookOpen size={28} />
+          </div>
+          <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
+            No subjects found
+          </h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '420px', margin: '0 auto 20px auto', lineHeight: 1.5 }}>
+            Add your semester subjects manually or auto-extract all 5 units directly from your college syllabus PDF.
+          </p>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={onOpenAddSubject} className="clay-btn clay-btn-dark">
+              <Plus size={16} /> Add Subject Manually
+            </button>
+            <button onClick={() => onNavigate('syllabus-ai')} className="clay-btn clay-btn-light">
+              <Sparkles size={16} /> Auto-Extract via Syllabus AI
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '20px',
+          }}
+        >
+          {filteredSubjects.map((sub) => {
+            const colors = getColorClasses(sub.colorTheme);
+            return (
+              <div
+                key={sub.id}
+                className="clay-card"
               style={{
                 padding: '24px',
                 cursor: 'pointer',
@@ -251,6 +292,7 @@ export const SubjectsView: React.FC<SubjectsViewProps> = ({
           );
         })}
       </div>
+      )}
     </div>
   );
 };

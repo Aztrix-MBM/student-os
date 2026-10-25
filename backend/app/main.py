@@ -66,6 +66,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Production Security Headers Middleware (Phase 9 Security Checklist)
+@app.middleware("http")
+async def security_headers_middleware(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    return response
+
 # Include Routers
 app.include_router(health_router)
 app.include_router(auth_router)

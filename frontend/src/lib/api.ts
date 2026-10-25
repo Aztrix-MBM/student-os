@@ -821,3 +821,25 @@ export async function testSendNotification(): Promise<{ ok: boolean; message: st
   }
 }
 
+/**
+ * Permanently delete student account and wipe all academic records (DPDP Act 2023).
+ */
+export async function deleteAccount(): Promise<{ ok: boolean; message: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      method: 'DELETE',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { ok: false, message: err.detail || 'Failed to delete account.' };
+    }
+    const data = await res.json();
+    return { ok: true, message: data.message || 'Account successfully deleted.' };
+  } catch (err: any) {
+    return { ok: false, message: err.message || 'Network error deleting account.' };
+  }
+}
+
+

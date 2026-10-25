@@ -133,8 +133,32 @@ export const TasksView: React.FC<TasksViewProps> = ({
       {/* Task List matching reference panel 6 */}
       <div className="clay-card" style={{ padding: '16px 20px' }}>
         {filteredTasks.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            No tasks in this view.
+          <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '9999px',
+                backgroundColor: 'var(--coral-bg)',
+                color: 'var(--coral-text)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 16px auto',
+                border: '1px solid var(--coral-border)',
+              }}
+            >
+              <Check size={28} />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
+              All clear! No tasks here
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '360px', margin: '0 auto 20px auto' }}>
+              Add assignments, lab records, or exam revisions to keep your daily study streak on track.
+            </p>
+            <button onClick={onOpenAddTask} className="clay-btn clay-btn-dark">
+              <Plus size={16} /> Add Task
+            </button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

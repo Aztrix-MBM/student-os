@@ -12,6 +12,7 @@ import {
   X,
   LogOut,
   Smartphone,
+  Shield,
 } from 'lucide-react';
 import { ScreenView } from '../types';
 
@@ -22,6 +23,8 @@ interface MobileDrawerProps {
   onNavigate: (view: ScreenView) => void;
   onLogout?: () => void;
   onOpenSettings?: () => void;
+  onOpenExamPass?: () => void;
+  onOpenPrivacy?: () => void;
   userName?: string;
 }
 
@@ -32,6 +35,8 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
   onNavigate,
   onLogout,
   onOpenSettings,
+  onOpenExamPass,
+  onOpenPrivacy,
   userName,
 }) => {
   useEffect(() => {
@@ -200,6 +205,46 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
 
         {/* User Card & Settings / Logout Footer */}
         <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+          {onOpenExamPass && (
+            <div
+              onClick={() => {
+                onClose();
+                onOpenExamPass();
+              }}
+              className="clay-card-flat"
+              style={{
+                padding: '10px 14px',
+                borderRadius: '14px',
+                backgroundColor: 'var(--amber-bg)',
+                border: '1px solid var(--amber-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={16} color="#CB7309" />
+                <span style={{ fontSize: '12px', fontWeight: 800, color: '#CB7309' }}>
+                  Exam Pass (₹99)
+                </span>
+              </div>
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  backgroundColor: '#CB7309',
+                  color: '#FFFFFF',
+                  padding: '2px 6px',
+                  borderRadius: '6px',
+                }}
+              >
+                PRO
+              </span>
+            </div>
+          )}
+
           <div
             className="clay-recessed"
             style={{
@@ -233,38 +278,65 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
             )}
           </div>
 
-          <button
-            onClick={() => {
-              onClose();
-              if (onOpenSettings) onOpenSettings();
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 14px',
-              width: '100%',
-              borderRadius: '12px',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-canvas-subtle)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
-          >
-            <Settings size={16} />
-            <span>Settings</span>
-          </button>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              onClick={() => {
+                onClose();
+                if (onOpenSettings) onOpenSettings();
+              }}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 12px',
+                borderRadius: '12px',
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-canvas-subtle)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              <Settings size={16} />
+              <span>Settings</span>
+            </button>
+
+            {onOpenPrivacy && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenPrivacy();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '9px 12px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-muted)',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <Shield size={15} />
+                <span>Privacy</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

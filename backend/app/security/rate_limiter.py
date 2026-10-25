@@ -82,6 +82,36 @@ class InMemoryRateLimiter:
             ip_key = f"register:ip:{client_ip}"
             self._check_key(ip_key, max_requests=20, now=now)
 
+    def check_ai(self, request: Request, user_id: Optional[str] = None) -> None:
+        """
+        AI Syllabus extraction limit:
+        10 requests per minute per user/IP to prevent API quota drain.
+        """
+        if not self.enabled:
+            return
+
+        now = time.time()
+        identifier = f"user:{user_id}" if user_id else f"ip:{self.get_client_ip(request)}"
+
+        with self._lock:
+            ai_key = f"ai:{identifier}"
+            self._check_key(ai_key, max_requests=10, now=now)
+
+    def check_upload(self, request: Request, user_id: Optional[str] = None) -> None:
+        """
+        File upload rate limit:
+        15 uploads per minute per user/IP.
+        """
+        if not self.enabled:
+            return
+
+        now = time.time()
+        identifier = f"user:{user_id}" if user_id else f"ip:{self.get_client_ip(request)}"
+
+        with self._lock:
+            upload_key = f"upload:{identifier}"
+            self._check_key(upload_key, max_requests=15, now=now)
+
     def reset(self) -> None:
         """Clear all rate limiting records (used in test isolation)."""
         with self._lock:
@@ -89,3 +119,4 @@ class InMemoryRateLimiter:
 
 
 auth_rate_limiter = InMemoryRateLimiter(window_seconds=60)
+api_rate_limiter = auth_rate_limiter

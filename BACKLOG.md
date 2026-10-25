@@ -17,5 +17,10 @@ Items identified during UI/UX and engine development reserved for subsequent pha
 4. **Phase 8 Web Push Notifications:**
    - Push notifications for morning plan and spaced revision reminders due on the day.
 
-5. **Phase 9 UPI Payment Modal:**
-   - QR code UPI intent for the ₹49–₹199 semester "Exam Pass".
+5. **Phase 9 UPI Payment Modal & DPDP Compliance (COMPLETED):**
+   - [x] UPI QR Intent Modal (`ExamPassModal.tsx`) with ₹49/mo, ₹99/sem, ₹199/yr tiers and UTR verification.
+   - [x] India DPDP Act 2023 compliance modal (`PrivacyModal.tsx`) with Terms and Data Rights.
+   - [x] Complete Right to Erasure cascade deletion (`DELETE /api/auth/me`).
+   - [x] Security headers middleware (`nosniff`, `DENY`, `strict-origin-when-cross-origin`).
+   - [x] Automated DB hot-backup with integrity verification (`backup_db.py`).
+   - [x] Global React Error Boundary (`ErrorBoundary.tsx`).

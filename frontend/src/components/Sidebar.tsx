@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Zap,
   Layers,
+  Shield,
 } from 'lucide-react';
 import { ScreenView } from '../types';
 
@@ -17,6 +18,8 @@ interface SidebarProps {
   onNavigate: (view: ScreenView) => void;
   onLogout?: () => void;
   onOpenSettings?: () => void;
+  onOpenExamPass?: () => void;
+  onOpenPrivacy?: () => void;
   userName?: string;
 }
 
@@ -25,6 +28,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   onLogout,
   onOpenSettings,
+  onOpenExamPass,
+  onOpenPrivacy,
   userName,
 }) => {
   const navItems: Array<{ id: ScreenView; label: string; icon: React.ReactNode }> = [
@@ -129,6 +134,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* User / Settings Footer */}
       <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+        {/* Exam Pass Pro Upgrade Banner */}
+        {onOpenExamPass && (
+          <div
+            onClick={onOpenExamPass}
+            className="clay-card-flat"
+            style={{
+              padding: '10px 12px',
+              borderRadius: '14px',
+              backgroundColor: 'var(--amber-bg)',
+              border: '1px solid var(--amber-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '10px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(203, 115, 9, 0.1)',
+              transition: 'transform 0.15s ease',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={16} color="#CB7309" />
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#CB7309' }}>
+                  Exam Pass
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                  Unlimited AI & Analytics
+                </div>
+              </div>
+            </div>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                color: '#FFFFFF',
+                backgroundColor: '#CB7309',
+                padding: '2px 7px',
+                borderRadius: '6px',
+              }}
+            >
+              ₹99
+            </span>
+          </div>
+        )}
+
         <div
           className="clay-recessed"
           style={{
@@ -136,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '10px',
+            marginBottom: '8px',
           }}
         >
           <div style={{ overflow: 'hidden' }}>
@@ -158,34 +208,68 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        <button
-          onClick={onOpenSettings ? onOpenSettings : () => onNavigate('settings')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '8px 14px',
-            width: '100%',
-            borderRadius: '12px',
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--text-secondary)',
-            fontSize: '13px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--bg-canvas-subtle)';
-            e.currentTarget.style.color = 'var(--text-primary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-            e.currentTarget.style.color = 'var(--text-secondary)';
-          }}
-        >
-          <Settings size={16} />
-          <span>Settings</span>
-        </button>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            onClick={onOpenSettings ? onOpenSettings : () => onNavigate('settings')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 10px',
+              borderRadius: '10px',
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--bg-canvas-subtle)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
+          >
+            <Settings size={15} />
+            <span>Settings</span>
+          </button>
+
+          {onOpenPrivacy && (
+            <button
+              onClick={onOpenPrivacy}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 10px',
+                borderRadius: '10px',
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                fontSize: '11px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              title="Privacy Policy & Terms"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-canvas-subtle)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--text-muted)';
+              }}
+            >
+              <Shield size={14} />
+              <span>Privacy</span>
+            </button>
+          )}
+        </div>
       </div>
     </aside>
   );

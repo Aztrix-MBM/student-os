@@ -19,6 +19,7 @@ import {
   fetchNotificationPreferences,
   updateNotificationPreferences,
   testSendNotification,
+  deleteAccount,
   ApiNotificationPreferences,
 } from '../lib/api';
 import { usePWAInstall, requestPushNotificationPermission } from '../lib/pwa';
@@ -37,6 +38,9 @@ interface SettingsModalProps {
     studyReminders: boolean;
   }) => void;
   onLogout?: () => void;
+  onOpenPrivacy?: () => void;
+  onOpenExamPass?: () => void;
+  onAccountDeleted?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -47,6 +51,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleDarkMode,
   onSaveProfile,
   onLogout,
+  onOpenPrivacy,
+  onOpenExamPass,
+  onAccountDeleted,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'study' | 'notifications' | 'security'>('profile');
   const [name, setName] = useState(user.name);
@@ -55,6 +62,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [dailyMinutes, setDailyMinutes] = useState(user.dailyStudyMinutes || 180);
   const [studyReminders, setStudyReminders] = useState(true);
   const [savedToast, setSavedToast] = useState(false);
+
+  // Phase 9 Security & Deletion State
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState<string>('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Phase 8 PWA & Notification State
   const { canInstall, isInstalled, promptInstall } = usePWAInstall();
@@ -683,6 +696,78 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
+              {/* Privacy & Compliance Link */}
+              <div
+                className="clay-card-flat"
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Privacy Policy & Terms
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    India DPDP Act 2023 compliance & data disclosures
+                  </div>
+                </div>
+
+                {onOpenPrivacy && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenPrivacy();
+                    }}
+                    className="clay-btn clay-btn-light"
+                    style={{ padding: '6px 14px', fontSize: '12px' }}
+                  >
+                    View Policy
+                  </button>
+                )}
+              </div>
+
+              {/* Semester Exam Pass Pro Upgrade */}
+              {onOpenExamPass && (
+                <div
+                  className="clay-card-flat"
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: 'var(--amber-bg)',
+                    border: '1px solid var(--amber-border)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--amber-text)' }}>
+                      Semester Exam Pass (₹99)
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      Unlimited AI syllabus extraction & retention curves
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenExamPass();
+                    }}
+                    className="clay-btn clay-btn-dark"
+                    style={{ padding: '6px 14px', fontSize: '12px' }}
+                  >
+                    Upgrade
+                  </button>
+                </div>
+              )}
+
               {onLogout && (
                 <div
                   className="clay-card-flat"
@@ -724,6 +809,121 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
               )}
+
+              {/* Danger Zone: Account Deletion (DPDP Act 2023) */}
+              <div
+                className="clay-card-flat"
+                style={{
+                  padding: '16px',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(227, 81, 43, 0.4)',
+                  backgroundColor: 'var(--coral-bg)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#E3512B' }}>
+                    Danger Zone: Delete Account & Data
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    Permanently delete your account, subjects, tasks, and revision logs. This action cannot be undone.
+                  </div>
+                </div>
+
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="clay-btn"
+                    style={{
+                      padding: '8px 14px',
+                      backgroundColor: '#FFFFFF',
+                      color: '#E3512B',
+                      border: '1px solid #FFD4C4',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    Delete Account
+                  </button>
+                ) : (
+                  <div
+                    style={{
+                      padding: '12px',
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Type <strong>DELETE</strong> to confirm permanent wipe:
+                    </div>
+                    <input
+                      type="text"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder="Type DELETE"
+                      className="clay-input"
+                      style={{ height: '36px', fontSize: '13px', padding: '0 10px' }}
+                    />
+                    {deleteError && (
+                      <div style={{ fontSize: '11px', color: '#E3512B', fontWeight: 600 }}>
+                        {deleteError}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (deleteConfirmText.trim() !== 'DELETE') {
+                            setDeleteError('Please type DELETE to confirm.');
+                            return;
+                          }
+                          setDeleteError(null);
+                          setIsDeletingAccount(true);
+                          const res = await deleteAccount();
+                          setIsDeletingAccount(false);
+                          if (res.ok) {
+                            if (onAccountDeleted) onAccountDeleted();
+                            else if (onLogout) onLogout();
+                            onClose();
+                          } else {
+                            setDeleteError(res.message);
+                          }
+                        }}
+                        disabled={isDeletingAccount}
+                        className="clay-btn"
+                        style={{
+                          backgroundColor: '#E3512B',
+                          color: '#FFFFFF',
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {isDeletingAccount ? 'Wiping Data...' : 'Confirm Permanent Deletion'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDeleteConfirm(false);
+                          setDeleteConfirmText('');
+                          setDeleteError(null);
+                        }}
+                        className="clay-btn clay-btn-light"
+                        style={{ padding: '6px 12px', fontSize: '12px' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

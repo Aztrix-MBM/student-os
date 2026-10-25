@@ -133,3 +133,60 @@ def get_authenticated_user(current_user: User = Depends(get_current_user)):
     Protected endpoint.
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.delete("/me", status_code=status.HTTP_200_OK)
+@router.delete("/auth/me", status_code=status.HTTP_200_OK)
+def delete_authenticated_user(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Permanently deletes current user account and all associated academic data (Right to be Forgotten / DPDP Act 2023).
+    Cascades to:
+    - subjects, units, topics, exams
+    - tasks
+    - topic_reviews and study_sessions
+    - daily_plans and recommendations
+    - push_subscriptions and notification_preferences
+    Clears httpOnly access_token cookie.
+    """
+    user_id = current_user.id
+
+    from app.models.academic import Subject, Task
+    from app.models.learning import TopicReview, StudySession
+    from app.models.planner import DailyPlan, Recommendation
+    from app.models.notifications import PushSubscription, NotificationPreference
+
+    # 1. Explicitly wipe user records across all tables
+    db.query(TopicReview).filter(TopicReview.user_id == user_id).delete(synchronize_session=False)
+    db.query(StudySession).filter(StudySession.user_id == user_id).delete(synchronize_session=False)
+    db.query(Recommendation).filter(Recommendation.user_id == user_id).delete(synchronize_session=False)
+    db.query(DailyPlan).filter(DailyPlan.user_id == user_id).delete(synchronize_session=False)
+    db.query(PushSubscription).filter(PushSubscription.user_id == user_id).delete(synchronize_session=False)
+    db.query(NotificationPreference).filter(NotificationPreference.user_id == user_id).delete(synchronize_session=False)
+    db.query(Task).filter(Task.user_id == user_id).delete(synchronize_session=False)
+
+    # 2. Delete subjects (cascades to units, topics, and exams)
+    subjects = db.query(Subject).filter(Subject.user_id == user_id).all()
+    for s in subjects:
+        db.delete(s)
+
+    # 3. Delete user row
+    db.delete(current_user)
+    db.commit()
+
+    # 4. Clear httpOnly auth cookie
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        httponly=True,
+        samesite="lax"
+    )
+
+    return {
+        "message": "Account and all associated academic data have been permanently wiped.",
+        "deleted_user_id": user_id
+    }
+

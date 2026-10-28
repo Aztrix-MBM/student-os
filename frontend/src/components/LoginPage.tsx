@@ -31,30 +31,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess
     }
   };
 
-  // Quick helper for isolated demo student account
-  const handleQuickDemoLogin = async () => {
-    setIsSubmitting(true);
-    setErrorMessage(null);
-
-    const demoEmail = 'demo@studentos.app';
-    const demoPassword = 'Password123!';
-
-    // Try logging in as demo account
-    let result = await loginUser(demoEmail, demoPassword);
-    if (!result.ok) {
-      // If not yet registered in fresh DB, register automatically
-      await registerUser('Demo Student', demoEmail, demoPassword, 180);
-      result = await loginUser(demoEmail, demoPassword);
-    }
-
-    setIsSubmitting(false);
-    if (result.ok && result.user) {
-      onLoginSuccess(result.user);
-    } else {
-      setErrorMessage(result.error || 'Demo login failed.');
-    }
-  };
-
   return (
     <div
       style={{
@@ -210,23 +186,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess
           </button>
         </form>
 
-        <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', gap: '12px' }}>
-          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-subtle)' }} />
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>OR</span>
-          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-subtle)' }} />
-        </div>
-
-        {/* Demo Guest Login button (isolated sample account) */}
-        <button
-          onClick={handleQuickDemoLogin}
-          disabled={isSubmitting}
-          className="clay-btn clay-btn-light"
-          style={{ width: '100%', height: '44px', fontSize: '13px', fontWeight: 700, marginBottom: '10px' }}
-        >
-          Explore Demo Student Account
-        </button>
-
-        <p style={{ marginTop: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+        <p style={{ marginTop: '24px', fontSize: '13px', color: 'var(--text-secondary)' }}>
           Don't have an account?{' '}
           <span
             onClick={() => onNavigate('signup')}

@@ -73,47 +73,46 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header
       className="clay-card-flat nav-header-bar"
       style={{
-        padding: '12px 20px',
-        marginBottom: '20px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '12px',
         position: 'sticky',
         top: '12px',
         zIndex: 15,
+        maxWidth: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Mobile Menu Button & Search */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '140px', maxWidth: '420px' }}>
+      <div
+        className="navbar-search-wrapper"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          flex: 1,
+          minWidth: 0,
+          maxWidth: '420px',
+        }}
+      >
         <button
           onClick={onToggleMobileMenu}
-          className="clay-btn-light mobile-menu-trigger"
-          style={{
-            width: '40px',
-            height: '40px',
-            padding: 0,
-            borderRadius: '12px',
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          className="clay-btn-light mobile-menu-trigger navbar-action-btn"
           aria-label="Toggle navigation menu"
           title="Open menu"
         >
-          <Menu size={20} style={{ display: 'block', margin: 'auto' }} />
+          <Menu size={18} style={{ display: 'block', margin: 'auto' }} />
         </button>
 
-        <div style={{ position: 'relative', width: '100%' }}>
+        <div style={{ position: 'relative', width: '100%', minWidth: 0 }}>
           <Search
-            size={17}
+            size={16}
             style={{
               position: 'absolute',
-              left: '14px',
+              left: '12px',
               top: '50%',
               transform: 'translateY(-50%)',
               color: 'var(--text-muted)',
+              pointerEvents: 'none',
             }}
           />
           <input
@@ -121,9 +120,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             placeholder="Search subjects, topics, exams..."
             className="clay-input search-bar-input"
             style={{
-              paddingLeft: '40px',
-              height: '40px',
-              fontSize: '13px',
               borderRadius: '9999px',
               width: '100%',
             }}
@@ -132,18 +128,21 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Right Controls: Streak, PWA, Health & User */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-
+      <div
+        className="navbar-right-controls"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          flexShrink: 0,
+        }}
+      >
         {/* Soft Streak Flame Badge (Phase 8 Specification) */}
         <div
-          className="clay-card-flat"
+          className="clay-card-flat navbar-streak-badge"
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '6px 12px',
             borderRadius: '9999px',
-            fontSize: '12px',
             fontWeight: 800,
             color: streak && streak.current_streak > 0 ? '#E3512B' : 'var(--text-muted)',
             cursor: 'pointer',
@@ -170,7 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {canInstall && (
           <button
             onClick={promptInstall}
-            className="clay-btn clay-btn-dark"
+            className="clay-btn clay-btn-dark hide-on-mobile"
             style={{
               height: '36px',
               padding: '0 12px',
@@ -182,13 +181,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="Install Student OS as native PWA App on your device"
           >
             <Download size={14} />
-            <span className="hide-on-mobile">Install App</span>
+            <span>Install App</span>
           </button>
         )}
 
-        {/* Live Backend Connection Indicator */}
+        {/* Live Backend Connection Indicator (Hidden on mobile to preserve navbar space; visible in Menu drawer) */}
         <div
-          className={backendHealth.ok ? 'clay-pill-mint' : 'clay-card-flat'}
+          className={`hide-on-mobile ${backendHealth.ok ? 'clay-pill-mint' : 'clay-card-flat'}`}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -222,29 +221,23 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Theme Toggle */}
         <button
           onClick={onToggleDarkMode}
-          className="clay-btn clay-btn-light"
-          style={{ width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', padding: 0, borderRadius: '12px' }}
+          className="clay-btn clay-btn-light navbar-action-btn"
           aria-label="Toggle dark mode"
+          title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-          {isDarkMode ? <Sun size={19} color="#FFB800" /> : <Moon size={19} />}
+          {isDarkMode ? <Sun size={18} color="#FFB800" /> : <Moon size={18} />}
         </button>
 
         {/* User Profile Avatar with Initials */}
         <button
           onClick={onOpenSettings}
+          className="navbar-action-btn"
           style={{
-            width: '44px',
-            height: '44px',
-            minWidth: '44px',
-            minHeight: '44px',
-            borderRadius: '14px',
+            borderRadius: '12px',
             backgroundColor: 'var(--dark-pill-bg)',
             color: '#FFFFFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             fontWeight: 700,
-            fontSize: '15px',
+            fontSize: '14px',
             boxShadow: '3px 4px 10px rgba(0, 0, 0, 0.25)',
             border: 'none',
             cursor: 'pointer',
@@ -261,12 +254,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         {onLogout && (
           <button
             onClick={onLogout}
-            className="clay-btn-light"
-            style={{ width: '42px', height: '42px', padding: 0, borderRadius: '12px' }}
+            className="clay-btn-light navbar-action-btn"
             title="Logout"
             aria-label="Logout"
           >
-            <LogOut size={18} />
+            <LogOut size={17} />
           </button>
         )}
       </div>

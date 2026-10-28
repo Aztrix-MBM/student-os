@@ -445,6 +445,47 @@ button, input, select, textarea {
   display: inline;
 }
 
+/* Top Navbar Responsive Structure */
+.nav-header-bar {
+  padding: 12px 20px;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+.navbar-search-wrapper {
+  gap: 10px;
+}
+
+.navbar-right-controls {
+  gap: 8px;
+}
+
+.navbar-action-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 !important;
+  border-radius: 12px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0;
+}
+
+.navbar-streak-badge {
+  padding: 6px 12px;
+  gap: 6px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.search-bar-input {
+  min-width: 0 !important;
+  height: 40px;
+  font-size: 13px;
+}
+
 @keyframes slideInLeft {
   from {
     transform: translateX(-100%);
@@ -465,6 +506,10 @@ button, input, select, textarea {
     align-items: center !important;
     justify-content: center !important;
   }
+  .nav-header-bar {
+    padding: 10px 16px !important;
+    gap: 10px !important;
+  }
   .app-shell-container {
     padding: 12px 10px !important;
   }
@@ -478,8 +523,52 @@ button, input, select, textarea {
     display: none !important;
   }
   .nav-header-bar {
-    padding: 10px 14px !important;
-    gap: 8px !important;
+    padding: 8px 10px !important;
+    gap: 6px !important;
+    margin-bottom: 14px !important;
+    border-radius: 16px !important;
+  }
+  .navbar-search-wrapper {
+    gap: 6px !important;
+  }
+  .navbar-right-controls {
+    gap: 6px !important;
+  }
+  .navbar-action-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 10px !important;
+  }
+  .navbar-streak-badge {
+    padding: 4px 8px !important;
+    gap: 4px !important;
+    font-size: 11px !important;
+  }
+  .search-bar-input {
+    height: 36px !important;
+    font-size: 12px !important;
+    padding-left: 32px !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .nav-header-bar {
+    padding: 6px 8px !important;
+    gap: 5px !important;
+  }
+  .navbar-right-controls {
+    gap: 4px !important;
+  }
+  .navbar-action-btn {
+    width: 33px !important;
+    height: 33px !important;
+    min-width: 33px !important;
+    min-height: 33px !important;
+  }
+  .navbar-streak-badge {
+    padding: 3px 6px !important;
   }
 }
 

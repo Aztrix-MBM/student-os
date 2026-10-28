@@ -462,6 +462,8 @@ button, input, select, textarea {
   }
   .mobile-menu-trigger {
     display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
   .app-shell-container {
     padding: 12px 10px !important;

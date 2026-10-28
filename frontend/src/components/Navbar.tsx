@@ -89,11 +89,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={onToggleMobileMenu}
           className="clay-btn-light mobile-menu-trigger"
-          style={{ width: '40px', height: '40px', padding: 0, borderRadius: '12px', flexShrink: 0 }}
+          style={{
+            width: '40px',
+            height: '40px',
+            padding: 0,
+            borderRadius: '12px',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
           aria-label="Toggle navigation menu"
           title="Open menu"
         >
-          <Menu size={19} />
+          <Menu size={20} style={{ display: 'block', margin: 'auto' }} />
         </button>
 
         <div style={{ position: 'relative', width: '100%' }}>

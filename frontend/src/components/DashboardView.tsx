@@ -262,6 +262,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       >
         {/* Subtle Mountain Landscape Background Overlay */}
         <div
+          className="hero-mountain-banner"
           style={{
             position: 'absolute',
             right: 0,

@@ -191,7 +191,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                         justifyContent: 'center',
                         cursor: 'pointer',
                         flexShrink: 0,
-                        backgroundColor: isCompleted ? '#232B36' : 'var(--bg-canvas-subtle)',
+                        backgroundColor: isCompleted ? 'var(--dark-pill-bg)' : 'var(--bg-canvas-subtle)',
                         border: '1.5px solid var(--border-clay)',
                       }}
                     >

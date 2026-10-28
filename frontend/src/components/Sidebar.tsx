@@ -103,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
+                className={isActive ? 'sidebar-nav-active' : ''}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

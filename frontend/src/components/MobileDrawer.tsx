@@ -172,6 +172,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
                 <button
                   key={item.id}
                   onClick={() => handleItemClick(item.id)}
+                  className={isActive ? 'sidebar-nav-active' : ''}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

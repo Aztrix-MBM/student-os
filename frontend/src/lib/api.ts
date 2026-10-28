@@ -94,16 +94,22 @@ export async function registerUser(
       }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
     if (!response.ok) {
-      return { ok: false, error: data.detail || 'Registration failed.' };
+      const errDetail = data?.detail;
+      const formattedError = typeof errDetail === 'string'
+        ? errDetail
+        : Array.isArray(errDetail) && errDetail.length > 0
+          ? errDetail.map((d: any) => d.msg || JSON.stringify(d)).join(', ')
+          : data?.message || data?.error || 'Registration failed.';
+      return { ok: false, error: formattedError };
     }
 
-    if (data.token) {
+    if (data?.token) {
       localStorage.setItem('student_os_jwt', data.token);
     }
 
-    return { ok: true, user: data.user };
+    return { ok: true, user: data?.user };
   } catch (err: any) {
     return { ok: false, error: err.message || 'Network error during registration.' };
   }
@@ -127,16 +133,22 @@ export async function loginUser(
       body: JSON.stringify({ email, password }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
     if (!response.ok) {
-      return { ok: false, error: data.detail || 'Invalid email or password.' };
+      const errDetail = data?.detail;
+      const formattedError = typeof errDetail === 'string'
+        ? errDetail
+        : Array.isArray(errDetail) && errDetail.length > 0
+          ? errDetail.map((d: any) => d.msg || JSON.stringify(d)).join(', ')
+          : data?.message || data?.error || 'Invalid email or password.';
+      return { ok: false, error: formattedError };
     }
 
-    if (data.token) {
+    if (data?.token) {
       localStorage.setItem('student_os_jwt', data.token);
     }
 
-    return { ok: true, user: data.user };
+    return { ok: true, user: data?.user };
   } catch (err: any) {
     return { ok: false, error: err.message || 'Network error during login.' };
   }

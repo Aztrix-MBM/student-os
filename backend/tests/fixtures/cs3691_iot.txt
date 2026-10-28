@@ -1,0 +1,14 @@
+MODULE 1 - EMBEDDED SYSTEM BASICS
+Embedded Systems Overview - Structural Units in Processor - Processor and Memory Selection - DMA - Memory Interfacing - Timers and Counters - Watchdog Timer - Real-Time Clocks.
+
+MODULE 2 - EMBEDDED NETWORKING AND INTERFACES
+Serial Communication Protocols - I2C - SPI - UART - USB - Wireless Protocols - Bluetooth - Zigbee - Wi-Fi Modules for Embedded Applications.
+
+MODULE 3 - INTERNET OF THINGS ARCHITECTURE
+IoT Architecture - Four Layer Architecture - Sensor Nodes - Actuators - Gateway - Cloud Computing Infrastructure - MQTT Protocol - CoAP - RESTful HTTP APIs.
+
+MODULE 4 - SENSORS AND ARDUINO/ESP32 PROGRAMMING
+Interfacing Sensors - Temperature, Humidity, Ultrasonic, PIR Motion Sensors - GPIO Programming on ESP32 - Sending Sensor Readings to Cloud Broker.
+
+MODULE 5 - IOT SECURITY AND EMBEDDED CASE STUDIES
+Security Challenges in IoT - Lightweight Cryptography - Smart Home Automation - Industrial IoT Case Studies - Healthcare Remote Monitoring Systems.

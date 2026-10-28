@@ -18,6 +18,7 @@ from app.schemas.syllabus import (
 from app.ai.extractor import extract_text_from_pdf, SyllabusExtractionError
 from app.ai.cache import syllabus_cache
 from app.ai.llm_client import extract_syllabus_structure
+from app.analytics import log_event
 
 router = APIRouter(prefix="/api/syllabus", tags=["Syllabus AI"])
 
@@ -165,14 +166,6 @@ def confirm_syllabus(
     - Enforces strict multi-tenant ownership on subject and exam.
     - Automatically links newly created topics to the specified exam if provided.
     """
-    # Enforce free plan limit on syllabus imports
-    if not current_user.is_pro:
-        if (current_user.syllabus_imports_count or 0) >= 1:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Free plan limit reached: maximum 1 syllabus import. Upgrade to Pro for unlimited imports."
-            )
-
     # 1. Verify subject ownership (404 if not found or cross-user)
     subject = db.scalars(
         select(Subject).where(Subject.id == payload.subject_id, Subject.user_id == current_user.id)
@@ -238,6 +231,17 @@ def confirm_syllabus(
 
     current_user.syllabus_imports_count = (current_user.syllabus_imports_count or 0) + 1
     db.commit()
+
+    log_event(
+        db,
+        "syllabus_imported",
+        user_id=current_user.id,
+        properties={
+            "subject_id": subject.id,
+            "units_count": saved_units_count,
+            "topics_count": saved_topics_count,
+        },
+    )
 
     return SyllabusConfirmResponse(
         success=True,

@@ -1,0 +1,11 @@
+UNIT I - AUTOMATA AND REGULAR EXPRESSIONS
+Finite Automata - Deterministic Finite Automata (DFA) - Non-Deterministic Finite Automata (NFA) - Equivalence of NFA and DFA - Finite Automata with Epsilon Transitions - Regular Expressions - Regular Grammars - Pumping Lemma for Regular Languages.
+
+UNIT II - CONTEXT-FREE GRAMMARS AND PUSHDOWN AUTOMATA
+Context-Free Grammars (CFG) - Derivation Trees - Ambiguity in Grammars - Simplification of CFG - Chomsky Normal Form (CNF) - Greibach Normal Form (GNF) - Pushdown Automata (PDA) - Equivalence of PDA and CFG - Deterministic PDA.
+
+UNIT III - TURING MACHINES AND COMPUTABILITY
+Turing Machine Model - Definition and Representations - Language Acceptability - Techniques for TM Construction - Variations of Turing Machines - Church-Turing Thesis - Decidable and Undecidable Problems.
+
+UNIT IV - COMPUTATIONAL COMPLEXITY
+Class P and NP - Polynomial Time Reductions - NP-Completeness - Cook's Theorem - Proving NP-Completeness - Travelling Salesperson Problem - Vertex Cover and Hamiltonian Cycle Problems.

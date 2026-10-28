@@ -178,12 +178,11 @@ def test_admin_payment_approval_lifts_pro_status(monkeypatch):
 
 def test_free_plan_limits_and_pro_upgrade():
     """
-    Verify server-side gating:
-    - Free user can create max 2 subjects (3rd returns 403).
-    - Free user can confirm max 1 syllabus import (2nd returns 403).
-    - Pro user is unrestricted.
+    Verify unrestricted student access:
+    - Any student can create unlimited subjects without 403 errors.
+    - Any student can confirm multiple syllabus imports without 403 errors.
     """
-    client, user_id = create_authenticated_client("Limit Student")
+    client, user_id = create_authenticated_client("Unlimited Student")
 
     # 1. Create 1st subject -> 201
     s1 = client.post("/api/subjects", json={"name": "Subject 1", "code": "CS101"})
@@ -195,10 +194,9 @@ def test_free_plan_limits_and_pro_upgrade():
     assert s2.status_code == 201
     sub2_id = s2.json()["id"]
 
-    # 3. Create 3rd subject as free user -> 403 Forbidden
+    # 3. Create 3rd subject -> 201 (Unlimited, no 403)
     s3 = client.post("/api/subjects", json={"name": "Subject 3", "code": "CS103"})
-    assert s3.status_code == 403
-    assert "Free plan limit reached: maximum 2 subjects" in s3.json()["detail"]
+    assert s3.status_code == 201
 
     # 4. Confirm 1st syllabus import -> 200
     confirm1 = client.post("/api/syllabus/confirm", json={
@@ -213,7 +211,7 @@ def test_free_plan_limits_and_pro_upgrade():
     })
     assert confirm1.status_code == 200
 
-    # 5. Confirm 2nd syllabus import as free user -> 403 Forbidden
+    # 5. Confirm 2nd syllabus import -> 200 (Unlimited, no 403)
     confirm2 = client.post("/api/syllabus/confirm", json={
         "subject_id": sub2_id,
         "units": [
@@ -224,33 +222,7 @@ def test_free_plan_limits_and_pro_upgrade():
             }
         ]
     })
-    assert confirm2.status_code == 403
-    assert "Free plan limit reached: maximum 1 syllabus import" in confirm2.json()["detail"]
-
-    # 6. Upgrade user to Pro
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.id == user_id).first()
-        user.pro_until = datetime.now(timezone.utc) + timedelta(days=30)
-        db.commit()
-    finally:
-        db.close()
-
-    # 7. Pro user can now create 3rd subject and 2nd syllabus import
-    s3_pro = client.post("/api/subjects", json={"name": "Subject 3", "code": "CS103"})
-    assert s3_pro.status_code == 201
-
-    confirm2_pro = client.post("/api/syllabus/confirm", json={
-        "subject_id": sub2_id,
-        "units": [
-            {
-                "name": "Unit 1: Advanced",
-                "order_no": 1,
-                "topics": [{"name": "Topic B"}]
-            }
-        ]
-    })
-    assert confirm2_pro.status_code == 200
+    assert confirm2.status_code == 200
 
 
 def test_expired_pro_falls_back_to_free():

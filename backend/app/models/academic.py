@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Table
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from app.database import Base
 
 
@@ -52,7 +52,7 @@ class Subject(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     # Relationships
-    user = relationship("User", backref="subjects")
+    user = relationship("User", backref=backref("subjects", cascade="all, delete-orphan", passive_deletes=True))
     units = relationship("Unit", back_populates="subject", cascade="all, delete-orphan", order_by="Unit.order_no")
     topics = relationship("Topic", back_populates="subject", cascade="all, delete-orphan")
     exams = relationship("Exam", back_populates="subject", cascade="all, delete-orphan")

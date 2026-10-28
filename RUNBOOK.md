@@ -109,4 +109,60 @@ If `JWT_SECRET` is compromised or rotated:
 1. Update database user credentials in provider console.
 2. Update `DATABASE_URL` in backend `.env`.
 3. Restart backend service.
-4. Verify `/api/health` returns status `"healthy"`.
+4. Verify `/api/health` returns status `"ok"`.
+
+---
+
+## 4. Demo Account Operations
+
+To seed a complete, realistic Anna University B.E. CSE demonstration account for presentations, college reviews, or viva:
+
+```bash
+cd backend
+python scripts/seed_demo.py
+```
+
+* **Demo Account Details:**
+  - **Email:** `demo@studentos.app`
+  - **Password:** `Password123!`
+  - **Subjects:** CS3451 Operating Systems (16 topics), CS3491 Cryptography and Cyber Security (11 topics)
+  - **Exam:** Internal Assessment 1 (scoped to Units 1 & 2, scheduled in 4 days)
+  - **Tasks:** 3 priority study tasks
+  - **Streak:** 4-day active streak with grace day shield
+
+---
+
+## 5. Product Analytics & Activation Metrics
+
+Student OS tracks internal operational events without third-party telemetry. To view user activation and day-7 retention:
+
+```bash
+cd backend
+python scripts/report_metrics.py
+```
+
+* **Metrics Calculated:**
+  - **Activation Rate:** % of users who imported a syllabus and viewed their daily plan.
+  - **Day-7 Retention:** % of registered users returning 7 days after signup.
+  - Event volume: `signup`, `session_logged`, `subject_created`, `syllabus_imported`, `plan_viewed`, `topic_reviewed`.
+
+---
+
+## 6. Production Deployment & Reverse Proxy Setup
+
+### 6.1 Frontend (Vercel)
+- Root Directory: `frontend`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Security Headers & Rewrites: Configured via `frontend/vercel.json` (CSP, nosniff, frame deny, referrer policy).
+
+### 6.2 Backend (Render / Railway / Fly.io)
+- Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Environment Variables required:
+  - `DATABASE_URL`: Managed PostgreSQL connection string.
+  - `JWT_SECRET`: Random 32+ character secret string.
+  - `COOKIE_SECURE`: `true`
+  - `APP_ENV`: `production`
+  - `FRONTEND_ORIGINS`: Production frontend domain (e.g., `https://app.studentos.app`).
+  - `TRUSTED_PROXIES`: `1` (or load balancer IP) so rate limiting uses true client IP.
+

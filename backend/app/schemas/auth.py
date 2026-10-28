@@ -7,7 +7,7 @@ class UserRegister(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
     password: str = Field(...)
-    daily_study_minutes: int = Field(default=180, ge=30, le=720)
+    daily_study_minutes: int = Field(default=120, ge=30, le=720)
 
     @field_validator("password")
     @classmethod

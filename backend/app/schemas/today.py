@@ -27,6 +27,8 @@ class WorkloadSummary(BaseModel):
     required_minutes: int
     available_minutes: int
     message: str
+    planned_minutes: Optional[int] = None
+    backlog_minutes: Optional[int] = None
 
 
 class UpcomingExamItem(BaseModel):
@@ -56,3 +58,14 @@ class RecommendationActionResponse(BaseModel):
     target_type: str
     target_id: str
     message: str
+
+
+class TogglePlanItemRequest(BaseModel):
+    item_id: str
+    completed: bool
+
+
+class TogglePlanItemResponse(BaseModel):
+    success: bool
+    item_id: str
+    completed: bool

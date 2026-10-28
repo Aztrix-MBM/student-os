@@ -170,7 +170,7 @@ export const MobilePreviewView: React.FC<MobilePreviewViewProps> = ({
                   {dayName} {formattedDate}
                 </div>
                 <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
-                  {greeting}, {user.name}! 👋
+                  {greeting}, {user.name}!
                 </h2>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                   Stay consistent, keep going.

@@ -4,14 +4,13 @@ import {
   GraduationCap,
   CheckSquare,
   Award,
-  Sparkles,
+  BookOpen,
   Layers,
   Settings,
   ChevronRight,
   Zap,
   X,
   LogOut,
-  Smartphone,
   Shield,
 } from 'lucide-react';
 import { ScreenView } from '../types';
@@ -56,9 +55,8 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
     { id: 'subjects', label: 'Subjects', icon: <GraduationCap size={19} /> },
     { id: 'tasks', label: 'Tasks', icon: <CheckSquare size={19} /> },
     { id: 'readiness', label: 'Exam Readiness', icon: <Award size={19} /> },
-    { id: 'syllabus-ai', label: 'Syllabus AI', icon: <Sparkles size={19} /> },
+    { id: 'syllabus-ai', label: 'Import Syllabus', icon: <BookOpen size={19} /> },
     { id: 'prototype', label: 'Prototype Lab', icon: <Layers size={19} /> },
-    { id: 'mobile-preview', label: 'Mobile Preview', icon: <Smartphone size={19} /> },
   ];
 
   const handleItemClick = (view: ScreenView) => {
@@ -205,45 +203,6 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
 
         {/* User Card & Settings / Logout Footer */}
         <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
-          {onOpenExamPass && (
-            <div
-              onClick={() => {
-                onClose();
-                onOpenExamPass();
-              }}
-              className="clay-card-flat"
-              style={{
-                padding: '10px 14px',
-                borderRadius: '14px',
-                backgroundColor: 'var(--amber-bg)',
-                border: '1px solid var(--amber-border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={16} color="#CB7309" />
-                <span style={{ fontSize: '12px', fontWeight: 800, color: '#CB7309' }}>
-                  Exam Pass (₹99)
-                </span>
-              </div>
-              <span
-                style={{
-                  fontSize: '10px',
-                  fontWeight: 800,
-                  backgroundColor: '#CB7309',
-                  color: '#FFFFFF',
-                  padding: '2px 6px',
-                  borderRadius: '6px',
-                }}
-              >
-                PRO
-              </span>
-            </div>
-          )}
 
           <div
             className="clay-recessed"

@@ -236,6 +236,8 @@ export interface ApiExam {
   type: string;
   created_at: string;
   updated_at: string;
+  topic_ids?: string[];
+  topics_count?: number;
 }
 
 export interface ApiTask {
@@ -363,10 +365,30 @@ export async function createExam(data: {
   exam_date: string;
   total_marks?: number;
   type?: string;
+  topic_ids?: string[];
+  unit_ids?: string[];
 }): Promise<ApiExam | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/exams`, {
       method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function updateUserProfile(data: {
+  name?: string;
+  daily_study_minutes?: number;
+}): Promise<UserAuthResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/me`, {
+      method: 'PATCH',
       headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify(data),
@@ -750,6 +772,8 @@ export interface ApiWorkloadSummary {
   load_ratio: number;
   required_minutes: number;
   available_minutes: number;
+  planned_minutes?: number;
+  backlog_minutes?: number;
   message: string;
 }
 
@@ -806,6 +830,20 @@ export async function dismissRecommendation(recId: string): Promise<boolean> {
       method: 'POST',
       headers: getAuthHeaders({ 'Accept': 'application/json' }),
       credentials: 'include',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function togglePlanItem(itemId: string, completed: boolean): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/today/toggle-item`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
+      credentials: 'include',
+      body: JSON.stringify({ item_id: itemId, completed }),
     });
     return res.ok;
   } catch {

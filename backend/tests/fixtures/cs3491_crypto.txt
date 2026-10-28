@@ -1,0 +1,14 @@
+UNIT I - INTRODUCTION TO SECURITY
+Computer Security Concepts - The OSI Security Architecture - Security Attacks - Security Services and Mechanisms - A Model for Network Security - Symmetric Ciphers - Substitution Techniques - Transposition Techniques - Block Cipher Principles - Data Encryption Standard (DES) - Advanced Encryption Standard (AES) - Block Cipher Modes of Operation.
+
+UNIT II - ASYMMETRIC CRYPTOGRAPHY
+Mathematics of Asymmetric Key Cryptography: Primes - Primality Testing - Fermat's and Euler's Theorems - The Chinese Remainder Theorem - Public Key Cryptography and RSA - Key Management - Diffie-Hellman Key Exchange - Elliptic Curve Cryptography (ECC).
+
+UNIT III - CRYPTOGRAPHIC DATA INTEGRITY ALGORITHMS
+Cryptographic Hash Functions - Applications - Secure Hash Algorithm (SHA-512) - Message Authentication Codes (MAC) - HMAC - Digital Signatures - Digital Signature Standard (DSS).
+
+UNIT IV - MUTUAL TRUST AND NETWORK SECURITY
+Key Management and Distribution - Symmetric Key Distribution Using Symmetric and Asymmetric Encryption - Distribution of Public Keys - X.509 Certificates - User Authentication - Kerberos - Transport Layer Security (TLS) - IP Security (IPSec).
+
+UNIT V - CYBER SECURITY AND THREAT MITIGATION
+Malicious Software - Viruses, Worms, Trojan Horses, Ransomware - Intrusion Detection Systems (IDS) - Firewalls - Types and Configuration - Cyber Crime and Digital Forensics Fundamentals.

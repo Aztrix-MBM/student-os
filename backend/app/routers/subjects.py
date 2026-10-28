@@ -15,6 +15,7 @@ from app.schemas.academic import (
     TopicResponse,
 )
 from app.security.deps import get_current_user
+from app.analytics import log_event
 
 router = APIRouter(prefix="/api/subjects", tags=["Subjects"])
 
@@ -57,14 +58,6 @@ def create_subject(
     db: Session = Depends(get_db),
 ):
     """Create a new subject for the authenticated student."""
-    if not current_user.is_pro:
-        existing_count = db.query(Subject).filter(Subject.user_id == current_user.id).count()
-        if existing_count >= 2:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Free plan limit reached: maximum 2 subjects. Upgrade to Pro for unlimited subjects."
-            )
-
     subject = Subject(
         user_id=current_user.id,
         name=payload.name.strip(),
@@ -75,6 +68,7 @@ def create_subject(
     db.add(subject)
     db.commit()
     db.refresh(subject)
+    log_event(db, "subject_created", user_id=current_user.id, properties={"subject_id": subject.id, "code": subject.code})
     return _map_subject_response(subject)
 
 

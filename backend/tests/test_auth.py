@@ -432,3 +432,38 @@ def test_register_and_login_lifecycle():
     # 5. /api/me after logout should return 401
     me_after_logout = test_client.get("/api/me")
     assert me_after_logout.status_code == 401
+
+
+def test_update_user_profile_study_minutes_and_name():
+    """B4: PATCH /api/me updates daily_study_minutes and name, which the planner uses."""
+    test_client = TestClient(app)
+    unique_email = f"study_min_{uuid.uuid4().hex[:8]}@example.com"
+
+    # Register with default
+    reg_res = test_client.post("/api/auth/register", json={
+        "name": "Study Student",
+        "email": unique_email,
+        "password": "strongPassword123",
+    })
+    assert reg_res.status_code == 201
+    assert reg_res.json()["user"]["daily_study_minutes"] == 120
+
+    # PATCH /api/me to 90 minutes and new name
+    patch_res = test_client.patch("/api/me", json={
+        "name": "Muthubalamurugan",
+        "daily_study_minutes": 90,
+    })
+    assert patch_res.status_code == 200
+    user_data = patch_res.json()
+    assert user_data["name"] == "Muthubalamurugan"
+    assert user_data["daily_study_minutes"] == 90
+
+    # Verify GET /api/me reflects update
+    me_res = test_client.get("/api/me")
+    assert me_res.status_code == 200
+    assert me_res.json()["daily_study_minutes"] == 90
+
+    # Verify invalid values are rejected (e.g. less than 30 or over 720)
+    bad_res = test_client.patch("/api/me", json={"daily_study_minutes": 10})
+    assert bad_res.status_code == 422
+

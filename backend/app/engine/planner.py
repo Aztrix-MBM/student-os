@@ -184,6 +184,8 @@ def generate_daily_plan(
                 "load_ratio": 0.0,
                 "required_minutes": 0,
                 "available_minutes": safe_available,
+                "planned_minutes": 0,
+                "backlog_minutes": 0,
                 "message": "All caught up! No pending tasks or topics due for review.",
             },
             "candidate_count": 0,
@@ -234,6 +236,7 @@ def generate_daily_plan(
         else:
             deferred.append(candidate)
 
+    planned_total = sum(p["minutes"] for p in plan)
     return {
         "next_best_action": next_best_action,
         "plan": plan,
@@ -243,6 +246,8 @@ def generate_daily_plan(
             "load_ratio": load_ratio,
             "required_minutes": total_candidate_minutes,
             "available_minutes": safe_available,
+            "planned_minutes": planned_total,
+            "backlog_minutes": total_candidate_minutes,
             "message": workload_msg,
         },
         "candidate_count": len(candidates),

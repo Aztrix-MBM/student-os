@@ -98,7 +98,7 @@ export const PrivacyModal: React.FC<PrivacyModalProps> = ({
                 Privacy & Academic Terms
               </h2>
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                India DPDP Act 2023 Compliant • Zero-Knowledge Student Privacy
+                Built Following India DPDP Principles • Student Data Protection
               </p>
             </div>
           </div>
@@ -184,29 +184,30 @@ export const PrivacyModal: React.FC<PrivacyModalProps> = ({
                 style={{
                   padding: '14px 18px',
                   borderRadius: '16px',
-                  borderLeft: '4px solid #179354',
+                  borderLeft: '4px solid #0F6B3C',
                 }}
               >
                 <div style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                  Student Data Sovereignty Principle
+                  Student Data Sovereignty & DPDP Principles
                 </div>
-                Your academic data belongs exclusively to you. Student OS does NOT sell, monetize, or share your study patterns, marks, or syllabus files with any third party, advertisers, or colleges.
+                Your academic data belongs exclusively to you. Student OS is built following the Digital Personal Data Protection (DPDP) principles. We do NOT sell, monetize, or share your study patterns, marks, or syllabus files with any third party, advertisers, or colleges.
               </div>
 
               <div>
                 <h3 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                  1. Information We Store
+                  1. Information We Collect and Store
                 </h3>
                 <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <li><strong>Account Profile:</strong> Name, college email address, password hash (salted with bcrypt).</li>
-                  <li><strong>Academic Records:</strong> Subjects, extracted syllabus units, study tasks, and exam dates.</li>
-                  <li><strong>Learning Loop:</strong> Topic self-assessment ratings (easy, good, hard, fail) used locally to compute your spaced repetition stability and exam readiness score.</li>
+                  <li><strong>Account Profile:</strong> Your name, student email address, and cryptographic password hash (bcrypt).</li>
+                  <li><strong>Academic Records:</strong> Subjects created, extracted syllabus units, topics, study tasks, and exam schedules.</li>
+                  <li><strong>Learning Loop:</strong> Topic self-assessment ratings (strong, okay, weak) used locally by our algorithm to compute memory stability and exam readiness estimates.</li>
+                  <li><strong>Notification Subscriptions:</strong> Browser Web Push endpoints and encryption keys (optional, only if push notifications are enabled).</li>
                 </ul>
               </div>
 
               <div>
                 <h3 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                  2. Strict Cookies & Security
+                  2. Strict Cookies & Security Headers
                 </h3>
                 <p>
                   We only issue strictly necessary <code>httpOnly</code>, <code>SameSite=Lax</code> authentication cookies. JavaScript in the browser cannot read your access token, protecting against cross-site scripting (XSS) and token theft.
@@ -215,10 +216,19 @@ export const PrivacyModal: React.FC<PrivacyModalProps> = ({
 
               <div>
                 <h3 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                  3. India DPDP Act 2023: Right to be Forgotten
+                  3. Right to Erasure (Account Deletion)
                 </h3>
                 <p>
-                  Under Section 12 of the Digital Personal Data Protection Act, 2023, you have the absolute right to erasure. Clicking <strong>Delete Account</strong> in your settings immediately wipes your entire database footprint permanently across all tables.
+                  Under DPDP principles, you have the right to complete erasure. Clicking <strong>Delete Account</strong> in your settings immediately wipes your entire database footprint permanently with cascading deletion across all tables.
+                </p>
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  4. Grievance Redressal Desk
+                </h3>
+                <p>
+                  For any privacy inquiries, data export, or grievance redressal, contact our Data Grievance Officer at <strong>grievance@studentos.app</strong>. All requests receive an acknowledgement within 24 hours and resolution within 48 business hours.
                 </p>
               </div>
             </>
@@ -229,7 +239,7 @@ export const PrivacyModal: React.FC<PrivacyModalProps> = ({
                 style={{
                   padding: '14px 18px',
                   borderRadius: '16px',
-                  borderLeft: '4px solid #2A79E2',
+                  borderLeft: '4px solid #1A5BB8',
                 }}
               >
                 <div style={{ fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>
@@ -243,16 +253,16 @@ export const PrivacyModal: React.FC<PrivacyModalProps> = ({
                   1. Permitted Academic Use
                 </h3>
                 <p>
-                  You may upload Anna University / RIT syllabi PDFs, lecture notes, and assignments to organize your semester. Automated scraping or denial-of-service attempts are strictly prohibited.
+                  You may upload university syllabi PDFs, lecture notes, and assignments to organize your semester. Automated scraping or denial-of-service attempts are strictly prohibited.
                 </p>
               </div>
 
               <div>
                 <h3 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
-                  2. AI Syllabus Extraction Quota
+                  2. Free & Unlimited Academic Access
                 </h3>
                 <p>
-                  Free accounts receive 5 AI syllabus parsing credits per day to ensure equitable access across all student users. Unlimited extractions are available via the ₹49/month or ₹99/semester Exam Pass.
+                  All registered students enjoy unrestricted access to create subjects, schedule exams, log reviews, and import syllabi for academic preparation.
                 </p>
               </div>
 

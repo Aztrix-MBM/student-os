@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.payment import Payment
 from app.security.deps import get_current_user
 from app.schemas.payment import PaymentConfigResponse, PlanInfo, PaymentCreate, PaymentResponse
+from app.analytics import log_event
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -95,6 +96,14 @@ def submit_payment(
     db.add(payment)
     db.commit()
     db.refresh(payment)
+
+    log_event(
+        db,
+        "payment_submitted",
+        user_id=current_user.id,
+        properties={"plan": payload.plan, "amount": plan_obj.price, "utr": payload.utr},
+    )
+
     return payment
 
 

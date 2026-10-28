@@ -401,3 +401,149 @@ def test_subject_cascade_deletion_cleans_related_records():
     task_after = client.get(f"/api/tasks/{task_id}")
     assert task_after.status_code == 200
     assert task_after.json()["subject_id"] is None
+
+
+def test_exam_scope_unit_and_topic_filtering():
+    """B1: Exam with 2 of 5 units scopes readiness strictly to those 2 units' topics."""
+    client = create_authenticated_client("Student Scoped Exam")
+
+    # 1. Create a subject
+    sub_res = client.post("/api/subjects", json={
+        "name": "Database Systems",
+        "code": "CS3401",
+    })
+    sub_id = sub_res.json()["id"]
+
+    # 2. Create 5 units, each with 2 topics
+    unit_ids = []
+    topic_ids_per_unit = {}
+    for i in range(1, 6):
+        u_res = client.post(f"/api/subjects/{sub_id}/units", json={"name": f"Unit {i}", "order_no": i})
+        uid = u_res.json()["id"]
+        unit_ids.append(uid)
+        topic_ids_per_unit[uid] = []
+        for j in range(1, 3):
+            t_res = client.post(f"/api/subjects/{sub_id}/topics", json={
+                "name": f"Unit {i} Topic {j}",
+                "unit_id": uid,
+                "importance": 0.8,
+            })
+            topic_ids_per_unit[uid].append(t_res.json()["id"])
+
+    # 3. Create an Internal Assessment 1 scoped ONLY to Unit 1 and Unit 2
+    exam_res = client.post("/api/exams", json={
+        "subject_id": sub_id,
+        "title": "Internal Assessment 1 (Units 1 & 2)",
+        "exam_date": (datetime.now(timezone.utc) + timedelta(days=5)).isoformat(),
+        "total_marks": 50,
+        "type": "internal",
+        "unit_ids": [unit_ids[0], unit_ids[1]],
+    })
+    assert exam_res.status_code == 201
+    exam_data = exam_res.json()
+    assert exam_data["topics_count"] == 4
+    assert len(exam_data["topic_ids"]) == 4
+
+    exam_id = exam_data["id"]
+
+    # 4. Review 1 topic in Unit 1 (should count toward readiness)
+    scoped_topic_id = topic_ids_per_unit[unit_ids[0]][0]
+    client.post(f"/api/topics/{scoped_topic_id}/review", json={
+        "self_level": "strong",
+        "rating": "easy",
+    })
+
+    # 5. Review 1 topic in Unit 5 (outside exam scope! Must NOT count toward this exam)
+    unscoped_topic_id = topic_ids_per_unit[unit_ids[4]][0]
+    client.post(f"/api/topics/{unscoped_topic_id}/review", json={
+        "self_level": "strong",
+        "rating": "easy",
+    })
+
+    # 6. Fetch Exam Readiness
+    readiness_res = client.get(f"/api/exams/{exam_id}/readiness")
+    assert readiness_res.status_code == 200
+    readiness_data = readiness_res.json()
+
+    # Readiness total topics must be exactly 4 (only units 1 & 2)
+    assert readiness_data["total_topics"] == 4
+    assert readiness_data["reviewed_topics"] == 1
+    assert readiness_data["coverage_pct"] == 25.0  # 1 of 4 reviewed
+    # Unscoped topic must not be in all_topics
+    all_returned_topic_ids = [t["id"] for t in readiness_data["all_topics"]]
+    assert scoped_topic_id in all_returned_topic_ids
+    assert unscoped_topic_id not in all_returned_topic_ids
+
+
+def test_exam_with_no_topics_and_past_exam():
+    """B1: Exam with no topics falls back cleanly; exam in past returns negative days_to_exam."""
+    client = create_authenticated_client("Student Past Exam")
+
+    # Create empty subject
+    sub_res = client.post("/api/subjects", json={
+        "name": "Empty Subject",
+        "code": "CS0000",
+    })
+    sub_id = sub_res.json()["id"]
+
+    # Create exam in the past
+    past_date = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+    exam_past_res = client.post("/api/exams", json={
+        "subject_id": sub_id,
+        "title": "Old Exam",
+        "exam_date": past_date,
+        "total_marks": 100,
+    })
+    assert exam_past_res.status_code == 201
+    past_exam_id = exam_past_res.json()["id"]
+
+    # Readiness check on past exam with 0 topics
+    res = client.get(f"/api/exams/{past_exam_id}/readiness")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total_topics"] == 0
+    assert data["readiness_pct"] == 0.0
+    assert data["coverage_pct"] == 0.0
+    assert data["days_to_exam"] < 0
+    assert data["label"] == "estimate"
+
+
+def test_exam_today():
+    """B1: Exam scheduled today calculates readiness normally without urgency inflation."""
+    client = create_authenticated_client("Student Exam Today")
+
+    sub_res = client.post("/api/subjects", json={
+        "name": "Cloud Computing",
+        "code": "CS3701",
+    })
+    sub_id = sub_res.json()["id"]
+
+    top_res = client.post(f"/api/subjects/{sub_id}/topics", json={
+        "name": "Virtualization",
+        "importance": 1.0,
+    })
+    top_id = top_res.json()["id"]
+
+    today_date = datetime.now(timezone.utc).isoformat()
+    exam_res = client.post("/api/exams", json={
+        "subject_id": sub_id,
+        "title": "Cloud Lab Exam",
+        "exam_date": today_date,
+    })
+    assert exam_res.status_code == 201
+    exam_id = exam_res.json()["id"]
+
+    # Review topic
+    rev_res = client.post(f"/api/topics/{top_id}/review", json={
+        "self_level": "strong",
+        "rating": "easy",
+    })
+    assert rev_res.status_code == 201
+
+    readiness_res = client.get(f"/api/exams/{exam_id}/readiness")
+    assert readiness_res.status_code == 200
+    data = readiness_res.json()
+    assert data["total_topics"] == 1
+    assert data["coverage_pct"] == 100.0
+    assert data["readiness_pct"] == 90.0  # Pure mastery * retention, not inflated by urgency
+

@@ -143,4 +143,36 @@
     - Support for optional Telegram Bot alerts (`telegram_chat_id`) allows engineering students who prefer chat apps to receive morning digests directly in messaging feeds.
     - Test endpoint `POST /api/notifications/test-send` allows students to verify system push notifications instantly from the settings interface.
 
+## Decision 13: 100% Free & Unlimited Access Model (Phase 10 Hardening)
+- **Context:** An initial prototype included an "Exam Pass (₹99)" modal with client-side UTR validation and simulated celebration screens. Testing and student feedback revealed that artificial restrictions (2-subject limits) impaired core student onboarding.
+- **Decision:** Removed free-tier gating in both frontend and backend (`POST /api/subjects`, `POST /api/syllabus/confirm`). All registered students receive unrestricted access to create subjects, schedule exams, log reviews, and import syllabi.
+- **Rationale:** Ensures maximum student adoption, academic utility, and authentic product usage. The database `payments` table and manual UTR verification (`scripts/approve_payment.py`) are retained as operational tooling for future optional services.
+
+## Decision 14: Scoped Exam Readiness Architecture (Phase 10 Hardening)
+- **Context:** In Indian engineering colleges (Anna University / autonomous colleges), internal assessments (IA-1, IA-2) cover specific units (e.g., Units 1 and 2), rather than the entire 5-unit semester syllabus. Computing readiness across the whole subject unfairly penalized students preparing for an internal test.
+- **Decision:**
+  - Added `exam_topics` (many-to-many association table between `exams` and `topics`).
+  - Added unit selector in `AddExamModal` that maps selected units to their topics and persists both `unit_ids` and `topic_ids`.
+  - Added an Exam Scope filter dropdown in `ExamReadinessView` allowing students to toggle between "Full Subject" and specific internal exams.
+  - Readiness gauge, syllabus coverage %, and recommendations strictly compute over scoped exam topics.
+
+## Decision 15: UI Accessibility & Clay Design System Cleanup (Phase 10 Hardening)
+- **Context:** The product required a calm, focused, and professional tool feel per `UI_UX_RULES.md`, eliminating "AI-generated template" characteristics.
+- **Decision:**
+  - Kept the soft tactile clay design system per user decision.
+  - Removed 100% of emojis from headings, buttons, pills, and navigation strings (0 emojis remaining across frontend), replacing them with semantic `lucide-react` vector icons (`Shield`, `Clock`, `Check`, `CheckCircle2`, `Target`, `BookOpen`).
+  - Renamed "Syllabus AI" to functional "Import Syllabus" across all navigation and views.
+  - Light mode pastel text colors updated to WCAG 2.2 AA compliant contrast (>= 5.4:1 contrast ratio: `--coral-text: #B83211`, `--mint-text: #0F6B3C`, `--sky-text: #1A5BB8`, `--lavender-text: #6929D5`, `--amber-text: #92400E`).
+  - Added visible `:focus-visible` styling and ensured touch targets are >= 44px.
+  - Removed `/mobile-preview` simulated frame; responsive layouts cleanly adapt down to 360px.
+
+## Decision 16: First-Party Internal Event Analytics & DPDP Alignment (Phase 10 Hardening)
+- **Context:** To measure product health, activation rate, and day-7 retention without violating student privacy or installing third-party telemetry trackers (Google Analytics, Mixpanel).
+- **Decision:**
+  - Implemented internal `events` table (`id`, `user_id`, `event_name`, `properties_json`, `created_at`).
+  - Event logging utility (`log_event`) records `signup`, `session_logged`, `subject_created`, `syllabus_imported`, `plan_viewed`, `topic_reviewed`, and `payment_submitted`.
+  - Added operational CLI tool (`scripts/report_metrics.py`) calculating activation rate (% of users who imported a syllabus and viewed a daily plan) and day-7 retention.
+  - Signup page requires an "I am 18 or older" confirmation checkbox.
+  - Privacy policy updated to follow Digital Personal Data Protection (DPDP) principles with complete right to erasure and designated grievance redressal (`grievance@studentos.app`).
+
 

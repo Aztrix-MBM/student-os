@@ -11,6 +11,7 @@ router = APIRouter(prefix="/api/exams", tags=["Exams"])
 
 
 def _map_exam_response(exam: Exam) -> ExamResponse:
+    t_ids = [t.id for t in exam.topics] if exam.topics else []
     return ExamResponse(
         id=exam.id,
         user_id=exam.user_id,
@@ -22,6 +23,8 @@ def _map_exam_response(exam: Exam) -> ExamResponse:
         type=exam.type,
         created_at=exam.created_at,
         updated_at=exam.updated_at,
+        topic_ids=t_ids,
+        topics_count=len(t_ids),
     )
 
 
@@ -47,6 +50,7 @@ def create_exam(
 ):
     """
     Create an exam. Validates that the associated subject belongs to the current student.
+    Supports scoping by specific topic_ids and/or unit_ids.
     Returns 404 if subject is not found or owned by another student.
     """
     subject = (
@@ -69,13 +73,29 @@ def create_exam(
         type=payload.type.strip() if payload.type else "internal",
     )
 
+    target_topics = {}
     if payload.topic_ids:
-        topics = (
+        found_topics = (
             db.query(Topic)
             .filter(Topic.id.in_(payload.topic_ids), Topic.subject_id == subject.id)
             .all()
         )
-        exam.topics = topics
+        for t in found_topics:
+            target_topics[t.id] = t
+
+    if payload.unit_ids:
+        unit_topics = (
+            db.query(Topic)
+            .filter(Topic.unit_id.in_(payload.unit_ids), Topic.subject_id == subject.id)
+            .all()
+        )
+        for t in unit_topics:
+            target_topics[t.id] = t
+
+    if target_topics:
+        exam.topics = list(target_topics.values())
+    else:
+        exam.topics = db.query(Topic).filter(Topic.subject_id == subject.id).all()
 
     db.add(exam)
     db.commit()
@@ -131,13 +151,25 @@ def update_exam(
     if payload.type is not None:
         exam.type = payload.type.strip()
 
-    if payload.topic_ids is not None:
-        topics = (
-            db.query(Topic)
-            .filter(Topic.id.in_(payload.topic_ids), Topic.subject_id == exam.subject_id)
-            .all()
-        )
-        exam.topics = topics
+    if payload.topic_ids is not None or payload.unit_ids is not None:
+        target_topics = {}
+        if payload.topic_ids:
+            found_topics = (
+                db.query(Topic)
+                .filter(Topic.id.in_(payload.topic_ids), Topic.subject_id == exam.subject_id)
+                .all()
+            )
+            for t in found_topics:
+                target_topics[t.id] = t
+        if payload.unit_ids:
+            unit_topics = (
+                db.query(Topic)
+                .filter(Topic.unit_id.in_(payload.unit_ids), Topic.subject_id == exam.subject_id)
+                .all()
+            )
+            for t in unit_topics:
+                target_topics[t.id] = t
+        exam.topics = list(target_topics.values())
 
     db.commit()
     db.refresh(exam)

@@ -19,6 +19,7 @@ from app.schemas.learning import (
 )
 from app.engine.retention import update_stability, retention, INITIAL_STABILITY
 from app.engine.readiness import calculate_readiness, resolve_mastery
+from app.analytics import log_event
 
 router = APIRouter(prefix="/api", tags=["Learning Loop"])
 
@@ -78,6 +79,13 @@ def review_topic(
     db.add(review_record)
     db.commit()
     db.refresh(review_record)
+
+    log_event(
+        db,
+        "topic_reviewed",
+        user_id=current_user.id,
+        properties={"topic_id": topic_id, "rating": payload.rating, "stability_days": new_stability},
+    )
 
     return TopicReviewResponse(
         id=review_record.id,
@@ -301,6 +309,14 @@ def create_study_session(
     db.add(session_record)
     db.commit()
     db.refresh(session_record)
+
+    log_event(
+        db,
+        "session_logged",
+        user_id=current_user.id,
+        properties={"duration_minutes": payload.duration_minutes, "subject_id": payload.subject_id},
+    )
+
     return session_record
 
 

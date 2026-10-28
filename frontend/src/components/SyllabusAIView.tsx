@@ -101,7 +101,7 @@ Searching: Linear Search – Binary Search. Sorting: Bubble Sort – Selection S
 
     setUnitsTree(res.data.units);
     if (res.data.cached) {
-      setCacheNotice('⚡ Retrieved instantly from cache (0 tokens consumed)');
+      setCacheNotice('Retrieved instantly from cache (0 tokens consumed)');
     } else if (res.data.message) {
       setCacheNotice(res.data.message);
     }
@@ -114,8 +114,8 @@ Searching: Linear Search – Binary Search. Sorting: Bubble Sort – Selection S
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage('PDF file exceeds the 5 MB maximum size limit.');
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage('PDF file exceeds the 10 MB maximum size limit.');
       return;
     }
 
@@ -134,7 +134,7 @@ Searching: Linear Search – Binary Search. Sorting: Bubble Sort – Selection S
 
     setUnitsTree(res.data.units);
     if (res.data.cached) {
-      setCacheNotice('⚡ Retrieved instantly from cache (0 tokens consumed)');
+      setCacheNotice('Retrieved instantly from cache (0 tokens consumed)');
     } else if (res.data.message) {
       setCacheNotice(res.data.message);
     }
@@ -222,7 +222,7 @@ Searching: Linear Search – Binary Search. Sorting: Bubble Sort – Selection S
       onAddExtractedSubject(targetSubjectId, chosenName, chosenCode, unitsTree.length, totalTopics, unitsTree);
     }
 
-    alert(`🎉 Successfully saved ${unitsTree.length} units and ${totalTopics} topics into your Academic Core! Opening Exam Readiness to rate your topics.`);
+    alert(`Successfully saved ${unitsTree.length} units and ${totalTopics} topics into your Academic Core! Opening Exam Readiness to rate your topics.`);
     onNavigate('readiness');
   };
 
@@ -240,11 +240,11 @@ Searching: Linear Search – Binary Search. Sorting: Bubble Sort – Selection S
               color: 'var(--lavender-text)',
             }}
           >
-            <Sparkles size={24} />
+            <BookOpen size={24} />
           </div>
           <div>
             <h1 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
-              Syllabus AI Extractor
+              Import Syllabus
             </h1>
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
               Paste syllabus text or upload PDF. Review and fine-tune units & topics before saving.
@@ -430,7 +430,7 @@ Searching: Linear Search – Binary Search. Sorting: Bubble Sort – Selection S
               >
                 <Upload size={16} /> Upload PDF Syllabus
               </button>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Max 5 MB • Text PDF</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Max 10 MB • Text PDF</span>
             </div>
 
             <button

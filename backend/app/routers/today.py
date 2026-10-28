@@ -18,9 +18,12 @@ from app.schemas.today import (
     WorkloadSummary,
     UpcomingExamItem,
     RecommendationActionResponse,
+    TogglePlanItemRequest,
+    TogglePlanItemResponse,
 )
 from app.engine.planner import generate_daily_plan
 from app.engine.retention import retention, INITIAL_STABILITY
+from app.analytics import log_event
 
 router = APIRouter(prefix="/api", tags=["Today Study Planner"])
 
@@ -44,7 +47,7 @@ def get_today_plan(
     """
     now = utc_now()
     today_str = now.strftime("%Y-%m-%d")
-    available_minutes = max(30, current_user.daily_study_minutes or 180)
+    available_minutes = max(30, current_user.daily_study_minutes or 120)
 
     # Query active dismissed recommendation IDs to avoid re-suggesting dismissed items today
     dismissed_rec_targets = set(
@@ -161,12 +164,33 @@ def get_today_plan(
         })
 
     # 4. Invoke Pure Intelligence Engine Planner
+    dynamic_max_items = max(4, min(10, available_minutes // 25))
     engine_plan = generate_daily_plan(
         tasks=task_cands,
         topics=topic_cands,
         exams=exam_cands,
         daily_study_minutes=available_minutes,
-        max_items=4,
+        max_items=dynamic_max_items,
+    )
+
+    today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+    reviewed_today_topic_ids = set(
+        db.scalars(
+            select(TopicReview.topic_id)
+            .where(
+                TopicReview.user_id == current_user.id,
+                TopicReview.reviewed_at >= today_start,
+            )
+        ).all()
+    )
+    completed_task_ids = set(
+        db.scalars(
+            select(Task.id)
+            .where(
+                Task.user_id == current_user.id,
+                Task.status == "completed",
+            )
+        ).all()
     )
 
     def convert_candidate_to_plan_item(item_dict: Optional[Dict[str, Any]]) -> Optional[PlanItem]:
@@ -217,6 +241,12 @@ def get_today_plan(
             db.add(rec)
             db.flush()
 
+        is_completed = bool(
+            item_dict.get("completed")
+            or (item_type == "topic" and target_id in reviewed_today_topic_ids)
+            or (item_type == "task" and target_id in completed_task_ids)
+        )
+
         return PlanItem(
             id=target_id,
             title=title,
@@ -226,32 +256,97 @@ def get_today_plan(
             reasons=reasons,
             subject_id=sub_id,
             subject_name=sub_name,
-            completed=False,
+            completed=is_completed,
             recommendation_id=rec.id,
         )
 
-    next_best_action = convert_candidate_to_plan_item(engine_plan["next_best_action"])
-    plan_items = [convert_candidate_to_plan_item(c) for c in engine_plan["plan"] if c]
-    deferred_items = [convert_candidate_to_plan_item(c) for c in engine_plan.get("deferred", []) if c]
+    # 5. Check if daily plan already exists for today to preserve planned items
+    existing_daily = db.scalars(
+        select(DailyPlan).where(DailyPlan.user_id == current_user.id, DailyPlan.plan_date == today_str)
+    ).first()
 
+    saved_items: List[PlanItem] = []
+    if existing_daily and existing_daily.items_json:
+        try:
+            saved_data = json.loads(existing_daily.items_json)
+            for raw_item in saved_data.get("plan", []):
+                t_id = raw_item.get("id")
+                if not t_id or t_id in dismissed_rec_targets:
+                    continue
+                t_type = raw_item.get("type", "topic")
+                is_done = bool(
+                    raw_item.get("completed")
+                    or (t_type == "topic" and t_id in reviewed_today_topic_ids)
+                    or (t_type == "task" and t_id in completed_task_ids)
+                )
+                reasons = [ReasonItem(**r) for r in raw_item.get("reasons", [])]
+                saved_items.append(
+                    PlanItem(
+                        id=t_id,
+                        title=raw_item.get("title", ""),
+                        type=t_type,
+                        minutes=raw_item.get("minutes", 25),
+                        score=raw_item.get("score", 0.5),
+                        reasons=reasons,
+                        subject_id=raw_item.get("subject_id"),
+                        subject_name=raw_item.get("subject_name"),
+                        completed=is_done,
+                        recommendation_id=raw_item.get("recommendation_id"),
+                    )
+                )
+        except Exception:
+            saved_items = []
+
+    # If dynamic budget increased, append additional candidate items
+    existing_ids = {p.id for p in saved_items}
+    for cand in engine_plan["plan"]:
+        if len(saved_items) >= dynamic_max_items:
+            break
+        if not cand or cand.get("id") in existing_ids or cand.get("id") in dismissed_rec_targets:
+            continue
+        new_plan_item = convert_candidate_to_plan_item(cand)
+        if new_plan_item:
+            saved_items.append(new_plan_item)
+            existing_ids.add(new_plan_item.id)
+
+    if saved_items:
+        plan_items = saved_items
+    else:
+        plan_items = [convert_candidate_to_plan_item(c) for c in engine_plan["plan"] if c]
+
+    # Pick Next Best Action: first uncompleted item, or first item if all completed
+    uncompleted = [p for p in plan_items if not p.completed]
+    if uncompleted:
+        next_best_action = uncompleted[0]
+    elif plan_items:
+        next_best_action = plan_items[0]
+    else:
+        next_best_action = convert_candidate_to_plan_item(engine_plan["next_best_action"])
+
+    existing_item_ids = {p.id for p in plan_items}
+    deferred_items = [
+        convert_candidate_to_plan_item(c)
+        for c in engine_plan.get("deferred", [])
+        if c and c.get("id") not in existing_item_ids and c.get("id") not in dismissed_rec_targets
+    ]
+
+    plan_minutes = sum(p.minutes for p in plan_items if p)
     workload_summary = WorkloadSummary(
         status=engine_plan["workload"]["status"],
         load_ratio=engine_plan["workload"]["load_ratio"],
         required_minutes=engine_plan["workload"]["required_minutes"],
-        available_minutes=engine_plan["workload"]["available_minutes"],
+        available_minutes=available_minutes,
+        planned_minutes=plan_minutes,
+        backlog_minutes=engine_plan["workload"].get("backlog_minutes", engine_plan["workload"]["required_minutes"]),
         message=engine_plan["workload"]["message"],
     )
 
-    # 5. Snapshot in daily_plans
+    # Snapshot in daily_plans
     plan_snapshot = {
         "next_best_action": next_best_action.model_dump() if next_best_action else None,
         "plan": [p.model_dump() for p in plan_items if p],
         "workload": workload_summary.model_dump(),
     }
-
-    existing_daily = db.scalars(
-        select(DailyPlan).where(DailyPlan.user_id == current_user.id, DailyPlan.plan_date == today_str)
-    ).first()
 
     if existing_daily:
         existing_daily.items_json = json.dumps(plan_snapshot)
@@ -266,6 +361,13 @@ def get_today_plan(
         db.add(new_daily)
 
     db.commit()
+
+    log_event(
+        db,
+        "plan_viewed",
+        user_id=current_user.id,
+        properties={"plan_items_count": len([p for p in plan_items if p]), "workload_status": workload_summary.status},
+    )
 
     return TodayPlanResponse(
         next_best_action=next_best_action,
@@ -330,4 +432,86 @@ def dismiss_recommendation(
         target_type=rec.target_type,
         target_id=rec.target_id,
         message="Recommendation dismissed for today.",
+    )
+
+
+@router.post("/today/toggle-item", response_model=TogglePlanItemResponse)
+def toggle_today_plan_item(
+    payload: TogglePlanItemRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Toggles completion status for an item in Today's Study Plan.
+    Persists completion in DailyPlan, TopicReview, and Task tables.
+    """
+    now = utc_now()
+    today_str = now.strftime("%Y-%m-%d")
+    today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+
+    existing_daily = db.scalars(
+        select(DailyPlan).where(DailyPlan.user_id == current_user.id, DailyPlan.plan_date == today_str)
+    ).first()
+
+    item_type = "topic"
+    if existing_daily and existing_daily.items_json:
+        try:
+            data = json.loads(existing_daily.items_json)
+            for itm in data.get("plan", []):
+                if itm.get("id") == payload.item_id:
+                    itm["completed"] = payload.completed
+                    item_type = itm.get("type", item_type)
+            if data.get("next_best_action") and data["next_best_action"].get("id") == payload.item_id:
+                data["next_best_action"]["completed"] = payload.completed
+            existing_daily.items_json = json.dumps(data)
+        except Exception:
+            pass
+
+    # Update Task or Topic Review
+    if payload.item_id.startswith("tsk_") or item_type == "task":
+        task = db.scalars(
+            select(Task).where(Task.id == payload.item_id, Task.user_id == current_user.id)
+        ).first()
+        if task:
+            task.status = "completed" if payload.completed else "todo"
+            task.completed_at = now if payload.completed else None
+    else:
+        # Topic
+        if payload.completed:
+            # Create review record if not reviewed today
+            existing_rev = db.scalars(
+                select(TopicReview).where(
+                    TopicReview.user_id == current_user.id,
+                    TopicReview.topic_id == payload.item_id,
+                    TopicReview.reviewed_at >= today_start,
+                )
+            ).first()
+            if not existing_rev:
+                new_rev = TopicReview(
+                    user_id=current_user.id,
+                    topic_id=payload.item_id,
+                    quality_rating="good",
+                    performance_rating="okay",
+                    stability_days=3.0,
+                    reviewed_at=now,
+                )
+                db.add(new_rev)
+        else:
+            # Remove today's review for this topic
+            today_revs = db.scalars(
+                select(TopicReview).where(
+                    TopicReview.user_id == current_user.id,
+                    TopicReview.topic_id == payload.item_id,
+                    TopicReview.reviewed_at >= today_start,
+                )
+            ).all()
+            for r in today_revs:
+                db.delete(r)
+
+    db.commit()
+
+    return TogglePlanItemResponse(
+        success=True,
+        item_id=payload.item_id,
+        completed=payload.completed,
     )

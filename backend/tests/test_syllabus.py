@@ -245,14 +245,14 @@ def test_pdf_scanned_or_empty_rejected():
     files = {"file": ("empty.pdf", pdf_bytes, "application/pdf")}
     res = client.post("/api/syllabus/upload", files=files)
     assert res.status_code == 422
-    assert "scanned images or no extractable text" in res.json()["detail"].lower()
+    assert "looks like a scanned pdf" in res.json()["detail"].lower()
 
 
-# ------------------ TEST 11: PDF File Too Large (>5MB) ------------------
+# ------------------ TEST 11: PDF File Too Large (>10MB) ------------------
 
 def test_pdf_too_large_rejected():
     client = create_authenticated_client("Student PDF Large")
-    huge_bytes = b"%PDF-1.4 " + (b"0" * (6 * 1024 * 1024))
+    huge_bytes = b"%PDF-1.4 " + (b"0" * (11 * 1024 * 1024))
     files = {"file": ("huge.pdf", huge_bytes, "application/pdf")}
     res = client.post("/api/syllabus/upload", files=files)
     assert res.status_code == 413

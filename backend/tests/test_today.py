@@ -290,3 +290,57 @@ def test_rapid_onboarding_to_today_plan_under_three_minutes():
 
     elapsed_time = time.time() - start_time
     assert elapsed_time < 180.0  # Must be strictly under 3 minutes (180s); typically executes in < 0.5s!
+
+
+# ------------------ TEST 9: Toggle Plan Item & Persistence ------------------
+
+def test_toggle_plan_item_persistence():
+    client = create_authenticated_client("Student Toggle Test")
+    now = datetime.now(timezone.utc)
+
+    # Create task
+    task_res = client.post("/api/tasks", json={
+        "title": "Assignment for Today",
+        "priority": 4,
+        "due_date": now.isoformat(),
+        "estimated_minutes": 30,
+    })
+    assert task_res.status_code == 201
+    task_id = task_res.json()["id"]
+
+    # 1. Fetch today plan
+    res1 = client.get("/api/today")
+    assert res1.status_code == 200
+    plan_items = res1.json()["plan"]
+    assert any(p["id"] == task_id for p in plan_items)
+    target_item = next(p for p in plan_items if p["id"] == task_id)
+    assert target_item["completed"] is False
+
+    # 2. Toggle item as completed
+    toggle_res = client.post("/api/today/toggle-item", json={
+        "item_id": task_id,
+        "completed": True,
+    })
+    assert toggle_res.status_code == 200
+    assert toggle_res.json()["success"] is True
+    assert toggle_res.json()["completed"] is True
+
+    # 3. Fetch today plan again (simulating page refresh) -> completed MUST BE True!
+    res2 = client.get("/api/today")
+    assert res2.status_code == 200
+    plan_items_after = res2.json()["plan"]
+    item_after = next(p for p in plan_items_after if p["id"] == task_id)
+    assert item_after["completed"] is True
+
+    # 4. Toggle back to uncompleted
+    toggle_res_off = client.post("/api/today/toggle-item", json={
+        "item_id": task_id,
+        "completed": False,
+    })
+    assert toggle_res_off.status_code == 200
+    assert toggle_res_off.json()["completed"] is False
+
+    res3 = client.get("/api/today")
+    assert res3.status_code == 200
+    item_off = next(p for p in res3.json()["plan"] if p["id"] == task_id)
+    assert item_off["completed"] is False

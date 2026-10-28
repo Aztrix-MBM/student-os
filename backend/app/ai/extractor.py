@@ -70,7 +70,7 @@ def extract_text_from_pdf(
     # If extracted text is less than 20 chars, the PDF is likely scanned / image-only
     if len(combined_text) < 20:
         raise SyllabusExtractionError(
-            "This PDF contains scanned images or no extractable text. Please paste the syllabus text directly.",
+            "This looks like a scanned PDF. Paste the text instead.",
             code="SCANNED_PDF_TEXT_REQUIRED",
         )
 

@@ -5,6 +5,7 @@ from app.models.learning import TopicReview, StudySession
 from app.models.planner import DailyPlan, Recommendation
 from app.models.notifications import PushSubscription, NotificationPreference
 from app.models.payment import Payment
+from app.models.event import Event
 
 __all__ = [
     "Base",
@@ -22,5 +23,6 @@ __all__ = [
     "PushSubscription",
     "NotificationPreference",
     "Payment",
+    "Event",
 ]
 

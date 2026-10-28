@@ -13,6 +13,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSignUpSucc
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isAdult, setIsAdult] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,12 +22,20 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSignUpSucc
     e.preventDefault();
     setErrorMessage(null);
 
+    if (password.length < 8) {
+      setErrorMessage('Password must be at least 8 characters.');
+      return;
+    }
     if (password !== confirmPassword) {
       setErrorMessage('Passwords do not match.');
       return;
     }
+    if (!isAdult) {
+      setErrorMessage('You must confirm that you are 18 years of age or older to register.');
+      return;
+    }
     if (!agreeTerms) {
-      setErrorMessage('Please agree to the Terms and Conditions.');
+      setErrorMessage('Please agree to the Terms of Service and Privacy Principles.');
       return;
     }
 
@@ -157,7 +166,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSignUpSucc
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Minimum 6 characters"
+                placeholder="Minimum 8 characters"
                 className="clay-input"
                 style={{ paddingLeft: '40px' }}
               />
@@ -185,11 +194,22 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSignUpSucc
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
             <input
               type="checkbox"
+              required
+              checked={isAdult}
+              onChange={(e) => setIsAdult(e.target.checked)}
+              style={{ accentColor: '#232B36', width: '16px', height: '16px' }}
+            />
+            <span>I am 18 years of age or older</span>
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-secondary)' }}>
+            <input
+              type="checkbox"
               checked={agreeTerms}
               onChange={(e) => setAgreeTerms(e.target.checked)}
               style={{ accentColor: '#232B36', width: '16px', height: '16px' }}
             />
-            I agree to the Terms and Conditions
+            <span>I agree to the Terms of Service & Privacy Principles</span>
           </label>
 
           <button

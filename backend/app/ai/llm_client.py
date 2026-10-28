@@ -108,18 +108,23 @@ def heuristic_syllabus_parser(text: str) -> Dict[str, Any]:
             current_unit_name = f"{prefix} {num} – {title}" if title else f"{prefix} {num}"
         else:
             if current_unit_name:
-                # Split line by dashes, commas or semicolons
-                delimiters = [r"–", r"—", r";", r"\t"]
-                tokens = [line]
-                for d in delimiters:
-                    new_tokens = []
-                    for t in tokens:
-                        new_tokens.extend(t.split(d))
-                    tokens = new_tokens
+                # Split line by dashes, bullets, semicolons, tabs, and dense commas
+                primary_tokens = re.split(r"[–—;•\t]|\s+-\s+", line)
+                expanded_tokens = []
+                for pt in primary_tokens:
+                    clean_pt = pt.strip()
+                    if not clean_pt:
+                        continue
+                    # If dense comma-separated list of topics (e.g. A, B, C)
+                    if len(clean_pt) > 50 and "," in clean_pt:
+                        parts = [p.strip() for p in clean_pt.split(",") if p.strip()]
+                        expanded_tokens.extend(parts)
+                    else:
+                        expanded_tokens.append(clean_pt)
 
-                for tok in tokens:
+                for tok in expanded_tokens:
                     sub = tok.strip()
-                    if len(sub) > 2 and len(sub) < 150:
+                    if len(sub) >= 2 and len(sub) < 160:
                         current_unit_topics.append(sub)
 
     flush_unit()

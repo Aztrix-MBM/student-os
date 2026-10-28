@@ -13,6 +13,7 @@ import {
   Smartphone,
   Send,
   Zap,
+  MessageSquare,
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import {
@@ -36,7 +37,7 @@ interface SettingsModalProps {
     semester: string;
     dailyStudyMinutes: number;
     studyReminders: boolean;
-  }) => void;
+  }) => void | Promise<void>;
   onLogout?: () => void;
   onOpenPrivacy?: () => void;
   onOpenExamPass?: () => void;
@@ -80,9 +81,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isTestingNotification, setIsTestingNotification] = useState<boolean>(false);
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
 
-  // Load preferences from backend when open
+  const [presetSavedToast, setPresetSavedToast] = useState<string | null>(null);
+
+  // Sync profile fields from props whenever modal opens or user profile updates
   useEffect(() => {
     if (isOpen) {
+      setName(user.name);
+      setCollege(user.college || 'Rajalakshmi Institute of Technology (RIT)');
+      setSemester(user.semester || 'Semester 4 — Computer Science & Engineering');
+      setDailyMinutes(user.dailyStudyMinutes || 180);
       let isMounted = true;
       fetchNotificationPreferences().then((prefs) => {
         if (isMounted && prefs) {
@@ -98,9 +105,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         isMounted = false;
       };
     }
-  }, [isOpen]);
+  }, [isOpen, user.name, user.college, user.semester, user.dailyStudyMinutes]);
 
   if (!isOpen) return null;
+
+  const handleSelectPreset = async (mins: number) => {
+    setDailyMinutes(mins);
+    setPresetSavedToast(`${mins}m target active`);
+    setTimeout(() => setPresetSavedToast(null), 2500);
+    try {
+      await onSaveProfile({
+        name,
+        college,
+        semester,
+        dailyStudyMinutes: mins,
+        studyReminders,
+      });
+    } catch (err) {
+      console.warn('Auto-save preset target error:', err);
+    }
+  };
 
   const handleEnablePush = async () => {
     const res = await requestPushNotificationPermission();
@@ -133,7 +157,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSaveProfile({
+    await onSaveProfile({
       name,
       college,
       semester,
@@ -376,8 +400,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
                     Daily Study Target: {dailyMinutes} Minutes ({Math.round((dailyMinutes / 60) * 10) / 10} Hours)
                   </label>
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--coral-text)' }}>
-                    {dailyMinutes >= 180 ? 'Optimal for Engineering' : 'Light Pace'}
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: presetSavedToast ? 'var(--mint-text)' : 'var(--coral-text)' }}>
+                    {presetSavedToast ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Check size={13} /> {presetSavedToast}
+                      </span>
+                    ) : dailyMinutes >= 180 ? (
+                      'Optimal for Engineering'
+                    ) : (
+                      'Light Pace'
+                    )}
                   </span>
                 </div>
 
@@ -386,11 +418,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       key={mins}
                       type="button"
-                      onClick={() => setDailyMinutes(mins)}
+                      onClick={() => handleSelectPreset(mins)}
                       className={`clay-btn ${dailyMinutes === mins ? 'clay-btn-dark' : 'clay-btn-light'}`}
                       style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px' }}
                     >
-                      {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
+                      {mins >= 60 ? `${mins / 60}h (${mins}m)` : `${mins}m`}
                     </button>
                   ))}
                 </div>
@@ -731,43 +763,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
               </div>
 
-              {/* Semester Exam Pass Pro Upgrade */}
-              {onOpenExamPass && (
-                <div
-                  className="clay-card-flat"
-                  style={{
-                    padding: '14px 16px',
-                    borderRadius: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backgroundColor: 'var(--amber-bg)',
-                    border: '1px solid var(--amber-border)',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--amber-text)' }}>
-                      Semester Exam Pass (₹99)
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      Unlimited AI syllabus extraction & retention curves
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenExamPass();
-                    }}
-                    className="clay-btn clay-btn-dark"
-                    style={{ padding: '6px 14px', fontSize: '12px' }}
-                  >
-                    Upgrade
-                  </button>
-                </div>
-              )}
-
               {onLogout && (
                 <div
                   className="clay-card-flat"
@@ -935,18 +930,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               borderTop: '1px solid var(--border-subtle)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
               gap: '12px',
             }}
           >
-            <button
-              type="button"
-              onClick={onClose}
-              className="clay-btn clay-btn-light"
-              style={{ padding: '10px 18px', fontSize: '13px', borderRadius: '12px' }}
+            <a
+              href="mailto:support@studentos.app?subject=Student%20OS%20Feedback"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13px',
+                color: 'var(--text-secondary)',
+                textDecoration: 'none',
+                fontWeight: 600,
+              }}
+              title="Share feedback or report an issue directly to the developer"
             >
-              Cancel
-            </button>
+              <MessageSquare size={15} />
+              <span>Send Feedback</span>
+            </a>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="clay-btn clay-btn-light"
+                style={{ padding: '10px 18px', fontSize: '13px', borderRadius: '12px' }}
+              >
+                Cancel
+              </button>
 
             <button
               type="submit"
@@ -972,6 +987,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </>
               )}
             </button>
+            </div>
           </div>
         </form>
       </div>

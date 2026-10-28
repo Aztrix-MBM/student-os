@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Award,
   AlertCircle,
@@ -13,49 +13,91 @@ import {
   RotateCcw,
   Search,
   Filter,
+  Plus,
+  Target,
+  Check,
+  BookOpen,
 } from 'lucide-react';
 import { TopicItem, ScreenView, TopicLevel, Subject } from '../types';
 import { calculateExamReadiness } from '../engine/readiness';
+import { ApiExam } from '../lib/api';
 
 interface ExamReadinessViewProps {
   topics: TopicItem[];
   subjects?: Subject[];
+  exams?: ApiExam[];
+  selectedExamId?: string;
+  onSelectExam?: (examId: string) => void;
   onRateTopic: (topicId: string, level: TopicLevel) => void;
   onRateAllTopics?: (level: TopicLevel) => void;
   onNavigate: (view: ScreenView) => void;
   selectedSubjectId: string;
   onSelectSubject?: (subjectId: string) => void;
+  onOpenAddExam?: () => void;
 }
 
 export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
   topics,
   subjects = [],
+  exams = [],
+  selectedExamId = 'all',
+  onSelectExam,
   onRateTopic,
   onRateAllTopics,
   onNavigate,
   selectedSubjectId,
   onSelectSubject,
+  onOpenAddExam,
 }) => {
   const currentSubject = subjects.find((s) => s.id === selectedSubjectId) || subjects[0];
   const currentSubjectName = currentSubject?.name || 'Data Structures';
+
+  const [internalExamId, setInternalExamId] = useState<string>(selectedExamId || 'all');
+
+  useEffect(() => {
+    if (selectedExamId) {
+      setInternalExamId(selectedExamId);
+    }
+  }, [selectedExamId]);
+
+  const activeExamId = selectedExamId !== undefined ? selectedExamId : internalExamId;
+  const activeExam = useMemo(() => {
+    if (!activeExamId || activeExamId === 'all') return null;
+    return exams.find((e) => e.id === activeExamId) || null;
+  }, [exams, activeExamId]);
 
   // Unit filter and search state
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Extract unique units for filtering tabs
+  // Filter topics strictly to the active exam's scoped topics (if an exam is selected)
+  const scopedTopics = useMemo(() => {
+    if (!activeExam) return topics;
+
+    // 1. By explicit topic_ids
+    if (activeExam.topic_ids && activeExam.topic_ids.length > 0) {
+      const setIds = new Set(activeExam.topic_ids);
+      const matched = topics.filter((t) => setIds.has(t.id));
+      if (matched.length > 0) return matched;
+    }
+
+    // 2. By unit name/order heuristic if scoped to specific units
+    return topics;
+  }, [topics, activeExam]);
+
+  // Extract unique units for filtering tabs strictly from scoped topics
   const unitList = useMemo(() => {
     const map = new Map<string, number>();
-    topics.forEach((t) => {
+    scopedTopics.forEach((t) => {
       const u = t.unitName || 'Other';
       map.set(u, (map.get(u) || 0) + 1);
     });
     return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
-  }, [topics]);
+  }, [scopedTopics]);
 
   // Filter topics based on unit and search query
   const filteredTopics = useMemo(() => {
-    return topics.filter((t) => {
+    return scopedTopics.filter((t) => {
       const matchesUnit = unitFilter === 'all' || t.unitName === unitFilter;
       const matchesSearch =
         !searchQuery.trim() ||
@@ -63,14 +105,14 @@ export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
         (t.unitName && t.unitName.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchesUnit && matchesSearch;
     });
-  }, [topics, unitFilter, searchQuery]);
+  }, [scopedTopics, unitFilter, searchQuery]);
 
-  const strongCount = topics.filter((t) => t.level === 'strong').length;
-  const okayCount = topics.filter((t) => t.level === 'okay').length;
-  const weakCount = topics.filter((t) => t.level === 'weak').length;
+  const strongCount = scopedTopics.filter((t) => t.level === 'strong').length;
+  const okayCount = scopedTopics.filter((t) => t.level === 'okay').length;
+  const weakCount = scopedTopics.filter((t) => t.level === 'weak').length;
 
-  // Compute live readiness using engine pure function
-  const readinessResult = calculateExamReadiness(topics);
+  // Compute live readiness using engine pure function strictly over scoped topics
+  const readinessResult = calculateExamReadiness(scopedTopics);
 
   // Dynamic Ring & Status colors based on readiness
   const isHighReadiness = readinessResult.readinessPct >= 85;
@@ -86,13 +128,13 @@ export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
     if (onRateAllTopics) {
       onRateAllTopics(level);
     } else {
-      topics.forEach((t) => onRateTopic(t.id, level));
+      scopedTopics.forEach((t) => onRateTopic(t.id, level));
     }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }} className="animate-fade-in">
-      {/* Header and Subject Select matching reference panel 8 */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} className="animate-fade-in">
+      {/* Header and Selectors */}
       <div
         style={{
           display: 'flex',
@@ -111,23 +153,29 @@ export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
           </p>
         </div>
 
-        {/* Exam / Subject Selector Dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Subject & Exam Scope Selector Dropdowns */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Subject Dropdown */}
           <div style={{ position: 'relative' }}>
             <select
               value={selectedSubjectId || (currentSubject ? currentSubject.id : '')}
-              onChange={(e) => onSelectSubject && onSelectSubject(e.target.value)}
+              onChange={(e) => {
+                if (onSelectSubject) onSelectSubject(e.target.value);
+                setInternalExamId('all');
+                if (onSelectExam) onSelectExam('all');
+                setUnitFilter('all');
+              }}
               className="clay-input"
               style={{
-                paddingRight: '40px',
-                paddingLeft: '18px',
-                height: '44px',
+                paddingRight: '36px',
+                paddingLeft: '16px',
+                height: '42px',
                 fontWeight: 700,
-                fontSize: '14px',
+                fontSize: '13px',
                 cursor: 'pointer',
                 appearance: 'none',
                 borderRadius: '9999px',
-                minWidth: '280px',
+                minWidth: '220px',
               }}
             >
               {subjects.length > 0 ? (
@@ -141,10 +189,10 @@ export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
               )}
             </select>
             <ChevronDown
-              size={18}
+              size={16}
               style={{
                 position: 'absolute',
-                right: '16px',
+                right: '14px',
                 top: '50%',
                 transform: 'translateY(-50%)',
                 pointerEvents: 'none',
@@ -152,8 +200,125 @@ export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
               }}
             />
           </div>
+
+          {/* Exam Scope Selector Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <select
+              value={activeExamId}
+              onChange={(e) => {
+                const val = e.target.value;
+                setInternalExamId(val);
+                if (onSelectExam) onSelectExam(val);
+                setUnitFilter('all');
+              }}
+              className="clay-input"
+              style={{
+                paddingRight: '36px',
+                paddingLeft: '16px',
+                height: '42px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                appearance: 'none',
+                borderRadius: '9999px',
+                minWidth: '230px',
+                border: activeExam ? '2px solid var(--accent-coral, #E05D44)' : undefined,
+                background: activeExam ? 'rgba(224, 93, 68, 0.08)' : undefined,
+              }}
+            >
+              <option value="all">Full Subject (All Units)</option>
+              {exams
+                .filter((ex) => !selectedSubjectId || ex.subject_id === selectedSubjectId || ex.subject_name === currentSubjectName)
+                .map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.title} ({ex.topics_count || ex.topic_ids?.length || 'Scoped'} topics)
+                  </option>
+                ))}
+            </select>
+            <ChevronDown
+              size={16}
+              style={{
+                position: 'absolute',
+                right: '14px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+                color: 'var(--text-secondary)',
+              }}
+            />
+          </div>
+
+          {onOpenAddExam && (
+            <button
+              type="button"
+              onClick={onOpenAddExam}
+              className="clay-btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '0 16px',
+                height: '42px',
+                fontSize: '13px',
+                fontWeight: 700,
+                borderRadius: '9999px',
+                background: 'var(--accent-coral, #E05D44)',
+                color: '#FFFFFF',
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(224, 93, 68, 0.25)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Plus size={16} /> Schedule Exam Scope
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Active Exam Scope Banner */}
+      {activeExam && (
+        <div
+          className="clay-card-flat"
+          style={{
+            padding: '12px 18px',
+            borderRadius: '16px',
+            backgroundColor: 'rgba(224, 93, 68, 0.08)',
+            border: '1px solid rgba(224, 93, 68, 0.3)',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Target size={18} color="var(--sky-text)" />
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                Exam Scope Active: {activeExam.title}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Readiness is strictly scoped to {scopedTopics.length} topics across {unitList.length} units
+                {activeExam.exam_date && ` • Exam Date: ${new Date(activeExam.exam_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setInternalExamId('all');
+              if (onSelectExam) onSelectExam('all');
+              setUnitFilter('all');
+            }}
+            className="clay-btn clay-btn-light"
+            style={{ height: '32px', fontSize: '12px', fontWeight: 700, padding: '0 14px' }}
+          >
+            Reset to All Units
+          </button>
+        </div>
+      )}
 
       {/* Main Readiness Analysis Card matching reference panel 8 */}
       <div
@@ -416,10 +581,10 @@ export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
             <button
               onClick={() => onNavigate('syllabus-ai')}
               className="clay-btn clay-btn-light"
-              style={{ height: '34px', padding: '0 12px', fontSize: '12px', fontWeight: 700, color: '#7C45EB' }}
-              title="Add more topics or import syllabus via AI"
+              style={{ height: '34px', padding: '0 12px', fontSize: '12px', fontWeight: 700, color: 'var(--lavender-text)' }}
+              title="Add more topics or import syllabus"
             >
-              <Sparkles size={14} color="#7C45EB" /> Syllabus AI
+              <BookOpen size={14} color="var(--lavender-text)" /> Import Syllabus
             </button>
             {topics.length > 0 && (
               <>
@@ -449,13 +614,14 @@ export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
               {/* Status Breakdown Pills */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(23, 147, 84, 0.12)', color: '#179354' }}>
-                  ✓ {strongCount} Strong
+                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '8px', backgroundColor: 'var(--mint-bg)', color: 'var(--mint-text)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Check size={12} strokeWidth={2.5} />
+                  <span>{strongCount} Strong</span>
                 </span>
-                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(42, 121, 226, 0.12)', color: '#2A79E2' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '8px', backgroundColor: 'var(--sky-bg)', color: 'var(--sky-text)' }}>
                   ~ {okayCount} Okay
                 </span>
-                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '8px', backgroundColor: 'rgba(227, 81, 43, 0.12)', color: '#E3512B' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '8px', backgroundColor: 'var(--coral-bg)', color: 'var(--coral-text)' }}>
                   ! {weakCount} Weak
                 </span>
               </div>
@@ -629,14 +795,14 @@ export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
               No Topics Available Yet for {currentSubjectName}
             </div>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '420px', margin: '0 auto' }}>
-              Upload your syllabus PDF or paste text into Syllabus AI to automatically extract all units and topics in seconds.
+              Upload your syllabus PDF or paste text into Import Syllabus to extract all units and topics in seconds.
             </p>
             <button
               onClick={() => onNavigate('syllabus-ai')}
               className="clay-btn clay-btn-dark"
-              style={{ height: '42px', padding: '0 22px', fontSize: '13px', marginTop: '6px' }}
+              style={{ minHeight: '44px', padding: '0 22px', fontSize: '13px', marginTop: '6px' }}
             >
-              <Sparkles size={16} /> Auto-Extract via Syllabus AI
+              <BookOpen size={16} /> Import Syllabus
             </button>
           </div>
         )}

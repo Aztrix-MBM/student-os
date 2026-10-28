@@ -1,0 +1,14 @@
+UNIT I - INTRODUCTION TO DATA SCIENCE
+Data Science - Fundamentals - Exploratory Data Analysis - Data Science Process - Phases - Roles and Stages in a Data Science Project - Data Acquisition and Preprocessing.
+
+UNIT II - DATA REPRESENTATION AND CLEANING
+Data Types and Measures of Central Tendency - Data Dispersion - Data Cleaning - Handling Missing Values - Outlier Detection and Filtering - Data Transformation and Scaling.
+
+UNIT III - STATISTICAL INFERENCE
+Descriptive Statistics - Probability Distributions - Normal, Binomial, Poisson Distributions - Hypothesis Testing - t-test, Chi-Square test, ANOVA - Correlation and Regression Analysis.
+
+UNIT IV - MACHINE LEARNING FUNDAMENTALS
+Supervised Learning Overview - Linear and Logistic Regression - Decision Trees - Unsupervised Learning - K-Means Clustering - Hierarchical Clustering - Dimensionality Reduction (PCA).
+
+UNIT V - DATA VISUALIZATION AND APPLICATIONS
+Principles of Data Visualization - Matplotlib and Seaborn Libraries - Visualizing Categorical and Continuous Data - Interactive Dashboards - Real-world Data Science Case Studies.

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Moon, Sun, Smartphone, Laptop, Menu, LogOut, Flame, Download } from 'lucide-react';
+import { Search, Moon, Sun, Menu, LogOut, Flame, Download, Shield } from 'lucide-react';
 import { ScreenView } from '../types';
 import { checkBackendHealth, HealthCheckData, fetchStreak, ApiStreak } from '../lib/api';
 import { usePWAInstall } from '../lib/pwa';
@@ -151,8 +151,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Flame size={15} color={streak && streak.current_streak > 0 ? '#E3512B' : '#94A3B8'} />
           <span>{streak ? `${streak.current_streak}d` : '0d'}</span>
           {streak?.status === 'grace_applied' && (
-            <span style={{ fontSize: '10px', color: '#D97706', fontWeight: 800 }}>
-              🛡️
+            <span style={{ display: 'inline-flex', alignItems: 'center', color: '#D97706' }}>
+              <Shield size={12} color="#D97706" />
             </span>
           )}
         </div>
@@ -210,21 +210,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
-        {/* Toggle Mobile Preview Frame */}
-        <button
-          onClick={() => onNavigate(currentView === 'mobile-preview' ? 'dashboard' : 'mobile-preview')}
-          className={`clay-btn ${currentView === 'mobile-preview' ? 'clay-btn-dark' : 'clay-btn-light'}`}
-          style={{ width: '42px', height: '42px', padding: 0, borderRadius: '12px' }}
-          title={currentView === 'mobile-preview' ? 'Switch to Desktop Mode' : 'View Mobile Preview (Screen 11)'}
-        >
-          {currentView === 'mobile-preview' ? <Laptop size={19} /> : <Smartphone size={19} />}
-        </button>
-
         {/* Theme Toggle */}
         <button
           onClick={onToggleDarkMode}
-          className="clay-btn-light"
-          style={{ width: '42px', height: '42px', padding: 0, borderRadius: '12px' }}
+          className="clay-btn clay-btn-light"
+          style={{ width: '44px', height: '44px', minWidth: '44px', minHeight: '44px', padding: 0, borderRadius: '12px' }}
           aria-label="Toggle dark mode"
         >
           {isDarkMode ? <Sun size={19} color="#FFB800" /> : <Moon size={19} />}
@@ -234,8 +224,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={onOpenSettings}
           style={{
-            width: '42px',
-            height: '42px',
+            width: '44px',
+            height: '44px',
+            minWidth: '44px',
+            minHeight: '44px',
             borderRadius: '14px',
             backgroundColor: 'var(--dark-pill-bg)',
             color: '#FFFFFF',

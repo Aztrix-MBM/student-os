@@ -41,7 +41,8 @@ def test_security_headers_present():
     assert res.status_code == 200
     assert res.headers.get("X-Content-Type-Options") == "nosniff"
     assert res.headers.get("X-Frame-Options") == "DENY"
-    assert "1; mode=block" in res.headers.get("X-XSS-Protection", "")
+    assert "X-XSS-Protection" not in res.headers
+    assert res.headers.get("Permissions-Policy") is not None
     assert res.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
 
 

@@ -182,7 +182,7 @@ export const SubjectsView: React.FC<SubjectsViewProps> = ({
               <Plus size={16} /> Add Subject Manually
             </button>
             <button onClick={() => onNavigate('syllabus-ai')} className="clay-btn clay-btn-light">
-              <Sparkles size={16} /> Auto-Extract via Syllabus AI
+              <BookOpen size={16} /> Import Syllabus
             </button>
           </div>
         </div>

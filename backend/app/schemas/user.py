@@ -1,3 +1,4 @@
+from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -5,11 +6,16 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class UserBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    daily_study_minutes: int = Field(default=180, ge=30, le=720)
+    daily_study_minutes: int = Field(default=120, ge=30, le=720)
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=6, max_length=128)
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    daily_study_minutes: Optional[int] = Field(default=None, ge=30, le=720)
 
 
 class UserResponse(UserBase):

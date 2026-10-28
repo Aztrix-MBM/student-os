@@ -17,12 +17,14 @@ import {
   TrendingUp,
   RotateCcw,
   Check,
+  Shield,
 } from 'lucide-react';
 import { ScreenView, ScheduleItem, UserProfile } from '../types';
 import {
   fetchTodayPlan,
   acceptRecommendation,
   dismissRecommendation,
+  togglePlanItem,
   updateTask,
   submitTopicReview,
   fetchStreak,
@@ -65,11 +67,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const greeting = currentHour < 12 ? 'Good Morning' : currentHour < 17 ? 'Good Afternoon' : 'Good Evening';
 
   // Phase 7 & 8 Today Plan and Retention State
+  const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const planStorageKey = `student_os_completed_${user.id}_${todayDateStr}`;
+
   const [todayPlan, setTodayPlan] = useState<ApiTodayPlan | null>(null);
   const [streak, setStreak] = useState<ApiStreak | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(true);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [completedPlanIds, setCompletedPlanIds] = useState<Set<string>>(new Set());
+  const [completedPlanIds, setCompletedPlanIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(`student_os_completed_${user.id}_${todayDateStr}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string | null>(null);
 
   // Fetch live Today Plan and Soft Streak from backend
@@ -79,6 +91,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       const [plan, streakData] = await Promise.all([fetchTodayPlan(), fetchStreak()]);
       if (plan) {
         setTodayPlan(plan);
+        // Merge server completed items with local storage
+        setCompletedPlanIds((prev) => {
+          const merged = new Set(prev);
+          (plan.plan || []).forEach((item) => {
+            if (item.completed) {
+              merged.add(item.id);
+            }
+          });
+          if (plan.next_best_action?.completed) {
+            merged.add(plan.next_best_action.id);
+          }
+          try {
+            localStorage.setItem(planStorageKey, JSON.stringify(Array.from(merged)));
+          } catch {
+            // ignore
+          }
+          return merged;
+        });
       }
       if (streakData) {
         setStreak(streakData);
@@ -91,9 +121,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
 
+  // Active planned minutes for today's generated schedule
+  const plannedMinutes =
+    todayPlan?.workload.planned_minutes ??
+    (todayPlan?.plan || []).reduce((acc, item) => acc + (item.minutes || 0), 0);
+  const targetMinutes = user.dailyStudyMinutes || todayPlan?.workload.available_minutes || 120;
+  const backlogMinutes = todayPlan?.workload.backlog_minutes ?? todayPlan?.workload.required_minutes ?? 0;
+
   useEffect(() => {
+    if (user.dailyStudyMinutes && todayPlan?.workload) {
+      const newTarget = user.dailyStudyMinutes;
+      const newMaxItems = Math.max(3, Math.min(10, Math.floor(newTarget / 25)));
+      const approxPlanned = Math.min(newTarget, newMaxItems * 25);
+      setTodayPlan((prev) =>
+        prev
+          ? {
+              ...prev,
+              student_daily_minutes: newTarget,
+              workload: {
+                ...prev.workload,
+                available_minutes: newTarget,
+                planned_minutes: approxPlanned,
+                status:
+                  prev.workload.required_minutes > newTarget * 1.5
+                    ? 'overloaded'
+                    : prev.workload.required_minutes > newTarget * 0.9
+                    ? 'busy'
+                    : 'comfortable',
+              },
+            }
+          : null
+      );
+    }
     loadPlan();
-  }, [user.id]);
+  }, [user.id, user.dailyStudyMinutes]);
 
   // Handle recommendation dismiss
   const handleDismissRec = async (recId: string, itemId: string, e: React.MouseEvent) => {
@@ -112,7 +173,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Handle marking a plan item completed (Task completion or Topic review)
   const handleTogglePlanItem = async (item: ApiPlanItem) => {
-    const isCurrentlyDone = completedPlanIds.has(item.id);
+    const isCurrentlyDone = completedPlanIds.has(item.id) || Boolean(item.completed);
     const updated = new Set(completedPlanIds);
 
     if (isCurrentlyDone) {
@@ -121,6 +182,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       updated.add(item.id);
     }
     setCompletedPlanIds(updated);
+
+    try {
+      localStorage.setItem(planStorageKey, JSON.stringify(Array.from(updated)));
+    } catch {
+      // ignore
+    }
+
+    // Call server toggle endpoint to persist in DailyPlan / DB
+    await togglePlanItem(item.id, !isCurrentlyDone);
 
     if (item.type === 'task' && item.id.startsWith('tsk_')) {
       await updateTask(item.id, { status: isCurrentlyDone ? 'todo' : 'completed' });
@@ -135,6 +205,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Filter out any dismissed items
   const activePlanItems = (todayPlan?.plan || []).filter((item) => !dismissedIds.has(item.id));
   const activeDeferredItems = (todayPlan?.deferred || []).filter((item) => !dismissedIds.has(item.id));
+  const completedCount = activePlanItems.filter((i) => completedPlanIds.has(i.id) || Boolean(i.completed)).length;
+  const completionPercentage = activePlanItems.length > 0
+    ? Math.min(100, Math.round((completedCount / activePlanItems.length) * 100))
+    : 0;
+
   const nba = todayPlan?.next_best_action && !dismissedIds.has(todayPlan.next_best_action.id)
     ? todayPlan.next_best_action
     : null;
@@ -223,7 +298,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               gap: '10px',
             }}
           >
-            {greeting}, {user.name}! <span style={{ fontSize: '28px' }}>👋</span>
+            {greeting}, {user.name}!
           </h1>
           <p style={{ fontSize: '15px', color: 'var(--text-secondary)', marginTop: '4px' }}>
             Stay consistent, keep going.
@@ -294,12 +369,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         : todayPlan.workload.status === 'busy'
                         ? 'var(--amber-text)'
                         : 'var(--mint-text)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                   }}
                 >
-                  Workload: {todayPlan.workload.status}
+                  <span>Workload: {todayPlan.workload.status}</span>
+                  {todayPlan.workload.status === 'overloaded' && backlogMinutes > targetMinutes && (
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        padding: '1px 6px',
+                        borderRadius: '6px',
+                        backgroundColor: 'rgba(227, 81, 43, 0.12)',
+                        color: 'var(--coral-text)',
+                      }}
+                      title="You have a large semester syllabus backlog. The AI planner selects only what fits your daily target."
+                    >
+                      Backlog
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {todayPlan.workload.required_minutes}m required / {todayPlan.workload.available_minutes}m target
+                  <span>{plannedMinutes}m planned / {targetMinutes}m target</span>
+                  {backlogMinutes > targetMinutes && (
+                    <span
+                      style={{ marginLeft: '6px', opacity: 0.8 }}
+                      title={`Total syllabus backlog: ${backlogMinutes} minutes across all unreviewed topics`}
+                    >
+                      ({backlogMinutes}m backlog)
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -344,8 +445,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 >
                   {streak.current_streak > 0 ? `${streak.current_streak}-Day Streak` : 'Start Streak'}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {streak.status === 'grace_applied' ? 'Grace Day Active 🛡️' : `${streak.total_active_days} active days`}
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {streak.status === 'grace_applied' ? (
+                    <>
+                      <Shield size={12} color="#D97706" />
+                      <span>Grace Day Active</span>
+                    </>
+                  ) : (
+                    `${streak.total_active_days} active days`
+                  )}
                 </div>
               </div>
             </div>
@@ -427,7 +535,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   fontSize: '18px',
                 }}
               >
-                ⏳
+                <Clock size={18} strokeWidth={2.5} />
               </div>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>
@@ -511,7 +619,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           style={{ padding: '20px 22px', cursor: 'pointer' }}
         >
           <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--mint-text)', lineHeight: 1 }}>
-            {todayPlan?.candidate_count ? `${Math.min(100, Math.round((completedPlanIds.size / Math.max(1, activePlanItems.length)) * 100))}%` : '0%'}
+            {todayPlan ? `${completionPercentage}%` : '0%'}
           </div>
           <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '8px' }}>
             Today's Plan Done
@@ -665,7 +773,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="clay-pill-mint" style={{ fontSize: '11px', fontWeight: 800 }}>
                 Next Best Action
               </span>
-              <span style={{ fontSize: '12px', color: 'var(--mint-text)', fontWeight: 600 }}>All Clear! 🎉</span>
+              <span style={{ fontSize: '12px', color: 'var(--mint-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <CheckCircle2 size={13} />
+                All Clear
+              </span>
             </div>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
               You're ahead of schedule today! No urgent topics or overdue tasks.
@@ -717,7 +828,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 {todayPlan
-                  ? `${completedPlanIds.size} of ${activePlanItems.length} items completed`
+                  ? `${completedCount} of ${activePlanItems.length} items completed (${completionPercentage}%)`
                   : `${schedule.filter((s) => s.completed).length} of ${schedule.length} completed`}
               </span>
             </div>
@@ -758,7 +869,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           className="clay-btn clay-btn-light"
                           style={{ fontSize: '12px', padding: '8px 18px', borderRadius: '12px' }}
                         >
-                          Syllabus AI
+                          Import Syllabus
                         </button>
                       </div>
                     </>
@@ -776,7 +887,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               ) : (
                 activePlanItems.map((item) => {
-                  const isDone = completedPlanIds.has(item.id);
+                  const isDone = completedPlanIds.has(item.id) || Boolean(item.completed);
                   return (
                     <div
                       key={item.id}
@@ -1190,7 +1301,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </button>
 
-              {/* Action 3: Syllabus AI Extractor */}
+              {/* Action 3: Syllabus Import Extractor */}
               <button
                 onClick={() => onNavigate('syllabus-ai')}
                 className="clay-card-flat"
@@ -1212,13 +1323,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     border: '1px solid var(--lavender-border)',
                   }}
                 >
-                  <Sparkles size={22} />
+                  <BookOpen size={22} />
                 </div>
                 <div>
                   <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Syllabus AI
+                    Import Syllabus
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Auto-extract topics</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Import & extract topics</div>
                 </div>
               </button>
 

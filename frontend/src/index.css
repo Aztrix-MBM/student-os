@@ -29,31 +29,31 @@
   --clay-inset-sunken: inset 2px 2px 5px rgba(165, 150, 130, 0.22), inset -1.5px -1.5px 3px rgba(255, 255, 255, 0.8);
   --clay-inset-deep: inset 3px 3px 6px rgba(150, 135, 115, 0.3), inset -2px -2px 4px rgba(255, 255, 255, 0.9);
 
-  /* Pastel Clay Accent Colors */
+  /* Pastel Clay Accent Colors (WCAG 2.2 AA compliant >= 4.5:1 contrast against light backgrounds) */
   --coral-bg: #FFF0EB;
   --coral-border: #FFD4C4;
-  --coral-text: #E3512B;
-  --coral-shadow: 4px 6px 14px rgba(227, 81, 43, 0.16);
+  --coral-text: #B83211;
+  --coral-shadow: 4px 6px 14px rgba(184, 50, 17, 0.14);
 
   --mint-bg: #EAF8F0;
   --mint-border: #BFE9D2;
-  --mint-text: #179354;
-  --mint-shadow: 4px 6px 14px rgba(23, 147, 84, 0.16);
+  --mint-text: #0F6B3C;
+  --mint-shadow: 4px 6px 14px rgba(15, 107, 60, 0.14);
 
   --sky-bg: #EFF5FE;
   --sky-border: #CBE0FD;
-  --sky-text: #2A79E2;
-  --sky-shadow: 4px 6px 14px rgba(42, 121, 226, 0.16);
+  --sky-text: #1A5BB8;
+  --sky-shadow: 4px 6px 14px rgba(26, 91, 184, 0.14);
 
   --lavender-bg: #F4EFFE;
   --lavender-border: #DFD3FD;
-  --lavender-text: #7C45EB;
-  --lavender-shadow: 4px 6px 14px rgba(124, 69, 235, 0.16);
+  --lavender-text: #6929D5;
+  --lavender-shadow: 4px 6px 14px rgba(105, 41, 213, 0.14);
 
   --amber-bg: #FFF8E6;
   --amber-border: #FFE6AB;
-  --amber-text: #CB7309;
-  --amber-shadow: 4px 6px 14px rgba(203, 115, 9, 0.16);
+  --amber-text: #92400E;
+  --amber-shadow: 4px 6px 14px rgba(146, 64, 14, 0.14);
 }
 
 /* Dark mode clay styling */
@@ -123,6 +123,11 @@ body {
 
 button, input, select, textarea {
   font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
 }
 
 /* Base Clay Utilities */

@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.schemas.auth import UserRegister, UserLogin, AuthResponse
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse, UserUpdate
 from app.security.auth import hash_password, verify_password, create_access_token, DUMMY_PASSWORD_HASH
 from app.security.deps import get_current_user
 from app.security.rate_limiter import auth_rate_limiter
 from app.config import settings
+from app.analytics import log_event
 
 router = APIRouter(prefix="/api", tags=["Authentication"])
 
@@ -44,6 +45,8 @@ def register_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    log_event(db, "signup", user_id=user.id, properties={"daily_study_minutes": user.daily_study_minutes})
 
     # Issue JWT and set httpOnly cookie
     token = create_access_token(data={"sub": user.id, "email": user.email})
@@ -96,6 +99,7 @@ def login_user(
         )
 
     token = create_access_token(data={"sub": user.id, "email": user.email})
+    log_event(db, "session_logged", user_id=user.id)
     response.set_cookie(
         key="access_token",
         value=token,
@@ -135,6 +139,27 @@ def get_authenticated_user(current_user: User = Depends(get_current_user)):
     Protected endpoint.
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.patch("/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
+@router.patch("/auth/me", response_model=UserResponse, status_code=status.HTTP_200_OK)
+def update_authenticated_user(
+    payload: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update profile fields (name, daily_study_minutes) for the authenticated student.
+    """
+    if payload.name is not None:
+        current_user.name = payload.name.strip()
+    if payload.daily_study_minutes is not None:
+        current_user.daily_study_minutes = payload.daily_study_minutes
+
+    db.commit()
+    db.refresh(current_user)
+    return UserResponse.model_validate(current_user)
+
 
 
 @router.delete("/me", status_code=status.HTTP_200_OK)

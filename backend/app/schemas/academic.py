@@ -91,6 +91,7 @@ class ExamBase(BaseModel):
 
 class ExamCreate(ExamBase):
     topic_ids: Optional[List[str]] = None
+    unit_ids: Optional[List[str]] = None
 
 
 class ExamUpdate(BaseModel):
@@ -99,6 +100,7 @@ class ExamUpdate(BaseModel):
     total_marks: Optional[int] = Field(default=None, ge=1, le=1000)
     type: Optional[str] = Field(default=None, max_length=50)
     topic_ids: Optional[List[str]] = None
+    unit_ids: Optional[List[str]] = None
 
 
 class ExamResponse(BaseModel):
@@ -112,6 +114,8 @@ class ExamResponse(BaseModel):
     type: str
     created_at: datetime
     updated_at: datetime
+    topic_ids: List[str] = []
+    topics_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 

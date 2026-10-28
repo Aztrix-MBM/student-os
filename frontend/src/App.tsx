@@ -14,11 +14,11 @@ import { DashboardView } from './components/DashboardView';
 import { SubjectsView } from './components/SubjectsView';
 import { TasksView } from './components/TasksView';
 import { ExamReadinessView } from './components/ExamReadinessView';
-import { MobilePreviewView } from './components/MobilePreviewView';
 import { SyllabusAIView } from './components/SyllabusAIView';
 import { PrototypeHub } from './prototype/PrototypeHub';
 import { AddSubjectModal } from './components/AddSubjectModal';
 import { AddTaskModal } from './components/AddTaskModal';
+import { AddExamModal } from './components/AddExamModal';
 import { SettingsModal } from './components/SettingsModal';
 import { MobileDrawer } from './components/MobileDrawer';
 import { PrivacyModal } from './components/PrivacyModal';
@@ -36,6 +36,9 @@ import {
   updateTask,
   deleteTask,
   submitTopicReview,
+  updateUserProfile,
+  fetchExams,
+  ApiExam,
 } from './lib/api';
 
 export const App: React.FC = () => {
@@ -53,10 +56,13 @@ export const App: React.FC = () => {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [topicsDS, setTopicsDS] = useState<TopicItem[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  const [exams, setExams] = useState<ApiExam[]>([]);
+  const [selectedExamId, setSelectedExamId] = useState<string>('all');
 
   // Modals
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState<boolean>(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState<boolean>(false);
+  const [isAddExamOpen, setIsAddExamOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState<boolean>(false);
   const [isExamPassOpen, setIsExamPassOpen] = useState<boolean>(false);
@@ -161,7 +167,8 @@ export const App: React.FC = () => {
     });
 
     try {
-      const [apiSubs, apiTasks] = await Promise.all([fetchSubjects(), fetchTasks()]);
+      const [apiSubs, apiTasks, apiExams] = await Promise.all([fetchSubjects(), fetchTasks(), fetchExams()]);
+      setExams(apiExams);
       const formattedSubs: Subject[] = apiSubs.map((s) => ({
         id: s.id,
         name: s.name,
@@ -284,15 +291,6 @@ export const App: React.FC = () => {
   };
 
   const handleAddSubject = async (newSub: Omit<Subject, 'id'>): Promise<{ ok: boolean; error?: string }> => {
-    // 1. Guard against Free Tier limit (max 2 subjects)
-    if (!isProUser && subjects.length >= 2) {
-      setIsExamPassOpen(true);
-      return {
-        ok: false,
-        error: 'Free plan limit reached: maximum 2 subjects. Upgrade to Pro for unlimited subjects.',
-      };
-    }
-
     if (currentUser) {
       const res = await createSubject({
         name: newSub.name,
@@ -302,9 +300,7 @@ export const App: React.FC = () => {
       });
 
       if (!res.ok || !res.data) {
-        if (res.status === 403 || res.error?.includes('Free plan limit')) {
-          setIsExamPassOpen(true);
-        } else if (res.status === 401) {
+        if (res.status === 401) {
           return {
             ok: false,
             error: 'Your session has expired. Please log in again to save subjects.',
@@ -450,7 +446,7 @@ export const App: React.FC = () => {
     setCurrentView('login');
   };
 
-  const handleSaveProfile = (updated: {
+  const handleSaveProfile = async (updated: {
     name: string;
     college: string;
     semester: string;
@@ -465,10 +461,36 @@ export const App: React.FC = () => {
       studyReminders: updated.studyReminders,
     });
     if (currentUser) {
-      setCurrentUser({
-        ...currentUser,
-        name: updated.name,
-      });
+      try {
+        const savedUser = await updateUserProfile({
+          name: updated.name,
+          daily_study_minutes: updated.dailyStudyMinutes,
+        });
+        if (savedUser) {
+          setCurrentUser(savedUser);
+        } else {
+          setCurrentUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  name: updated.name,
+                  daily_study_minutes: updated.dailyStudyMinutes,
+                }
+              : null
+          );
+        }
+      } catch (err) {
+        console.error('Failed to update student profile on server:', err);
+        setCurrentUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                name: updated.name,
+                daily_study_minutes: updated.dailyStudyMinutes,
+              }
+            : null
+        );
+      }
     }
   };
 
@@ -558,7 +580,6 @@ export const App: React.FC = () => {
             onNavigate={setCurrentView}
             onLogout={handleLogout}
             onOpenSettings={() => setIsSettingsOpen(true)}
-            onOpenExamPass={() => setIsExamPassOpen(true)}
             onOpenPrivacy={() => setIsPrivacyOpen(true)}
             userName={activeUserProfile.name}
           />
@@ -613,14 +634,19 @@ export const App: React.FC = () => {
               <ExamReadinessView
                 topics={topicsDS}
                 subjects={subjects}
+                exams={exams}
+                selectedExamId={selectedExamId}
+                onSelectExam={setSelectedExamId}
                 onRateTopic={handleRateTopic}
                 onRateAllTopics={handleRateAllTopics}
                 onNavigate={setCurrentView}
                 selectedSubjectId={selectedSubjectId}
                 onSelectSubject={(subId) => {
                   setSelectedSubjectId(subId);
+                  setSelectedExamId('all');
                   loadSubjectTopics(subId);
                 }}
+                onOpenAddExam={() => setIsAddExamOpen(true)}
               />
             )}
 
@@ -632,15 +658,6 @@ export const App: React.FC = () => {
             )}
 
             {currentView === 'prototype' && <PrototypeHub onNavigate={setCurrentView} />}
-
-            {currentView === 'mobile-preview' && (
-              <MobilePreviewView
-                user={activeUserProfile}
-                subjects={subjects}
-                schedule={schedule}
-                pendingTasksCount={pendingTasksCount}
-              />
-            )}
           </main>
         </div>
       )}
@@ -650,9 +667,6 @@ export const App: React.FC = () => {
         isOpen={isAddSubjectOpen}
         onClose={() => setIsAddSubjectOpen(false)}
         onAddSubject={handleAddSubject}
-        isPro={isProUser}
-        subjectsCount={subjects.length}
-        onOpenExamPass={() => setIsExamPassOpen(true)}
       />
 
       <AddTaskModal
@@ -660,6 +674,21 @@ export const App: React.FC = () => {
         onClose={() => setIsAddTaskOpen(false)}
         onAddTask={handleAddTask}
         subjectNames={subjects.map((s) => s.name)}
+      />
+
+      <AddExamModal
+        isOpen={isAddExamOpen}
+        onClose={() => setIsAddExamOpen(false)}
+        subjects={subjects}
+        topics={topicsDS}
+        defaultSubjectId={selectedSubjectId}
+        onExamCreated={(newExam) => {
+          if (newExam) {
+            setExams((prev) => [newExam, ...prev.filter((e) => e.id !== newExam.id)]);
+            setSelectedExamId(newExam.id);
+          }
+          loadSubjectTopics(selectedSubjectId);
+        }}
       />
 
       <SettingsModal
@@ -671,7 +700,6 @@ export const App: React.FC = () => {
         onSaveProfile={handleSaveProfile}
         onLogout={handleLogout}
         onOpenPrivacy={() => setIsPrivacyOpen(true)}
-        onOpenExamPass={() => setIsExamPassOpen(true)}
         onAccountDeleted={() => {
           setCurrentUser(null);
           setSubjects([]);
@@ -690,7 +718,6 @@ export const App: React.FC = () => {
         onNavigate={setCurrentView}
         onLogout={handleLogout}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenExamPass={() => setIsExamPassOpen(true)}
         onOpenPrivacy={() => setIsPrivacyOpen(true)}
         userName={activeUserProfile.name}
       />
@@ -700,16 +727,6 @@ export const App: React.FC = () => {
         isOpen={isPrivacyOpen}
         onClose={() => setIsPrivacyOpen(false)}
         onOpenDeleteAccount={() => setIsSettingsOpen(true)}
-      />
-
-      {/* Phase 9 Semester Exam Pass UPI Modal */}
-      <ExamPassModal
-        isOpen={isExamPassOpen}
-        onClose={() => setIsExamPassOpen(false)}
-        isPro={isProUser}
-        onActivated={(planName) => {
-          setIsProUser(true);
-        }}
       />
     </div>
   );

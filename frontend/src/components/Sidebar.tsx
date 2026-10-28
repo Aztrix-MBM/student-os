@@ -4,7 +4,7 @@ import {
   GraduationCap,
   CheckSquare,
   Award,
-  Sparkles,
+  BookOpen,
   Settings,
   ChevronRight,
   Zap,
@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'subjects', label: 'Subjects', icon: <GraduationCap size={19} /> },
     { id: 'tasks', label: 'Tasks', icon: <CheckSquare size={19} /> },
     { id: 'readiness', label: 'Exam Readiness', icon: <Award size={19} /> },
-    { id: 'syllabus-ai', label: 'Syllabus AI', icon: <Sparkles size={19} /> },
+    { id: 'syllabus-ai', label: 'Import Syllabus', icon: <BookOpen size={19} /> },
     { id: 'prototype', label: 'Prototype Lab', icon: <Layers size={19} /> },
   ];
 
@@ -108,6 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '11px 16px',
+                  minHeight: '44px',
                   borderRadius: '14px',
                   border: 'none',
                   backgroundColor: isActive ? 'var(--dark-pill-bg)' : 'transparent',
@@ -134,50 +135,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* User / Settings Footer */}
       <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
-        {/* Exam Pass Pro Upgrade Banner */}
-        {onOpenExamPass && (
-          <div
-            onClick={onOpenExamPass}
-            className="clay-card-flat"
-            style={{
-              padding: '10px 12px',
-              borderRadius: '14px',
-              backgroundColor: 'var(--amber-bg)',
-              border: '1px solid var(--amber-border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '10px',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(203, 115, 9, 0.1)',
-              transition: 'transform 0.15s ease',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={16} color="#CB7309" />
-              <div>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#CB7309' }}>
-                  Exam Pass
-                </div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                  Unlimited AI & Analytics
-                </div>
-              </div>
-            </div>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 800,
-                color: '#FFFFFF',
-                backgroundColor: '#CB7309',
-                padding: '2px 7px',
-                borderRadius: '6px',
-              }}
-            >
-              ₹99
-            </span>
-          </div>
-        )}
 
         <div
           className="clay-recessed"

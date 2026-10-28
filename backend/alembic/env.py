@@ -2,8 +2,7 @@ import sys
 from os.path import abspath, dirname
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import create_engine, pool
 
 from alembic import context
 
@@ -21,14 +20,14 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set database URL dynamically from environment
-config.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_url)
+# Set database URL dynamically from environment (escaping % for configparser interpolation)
+config.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = settings.sqlalchemy_database_url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -41,9 +40,8 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = create_engine(
+        settings.sqlalchemy_database_url,
         poolclass=pool.NullPool,
     )
 

@@ -12,3 +12,4 @@ Mass Storage system - Overview of Mass Storage Structure, Disk Structure, Disk S
 
 UNIT V - CASE STUDY AND VIRTUALIZATION
 Virtual Machines - History, Benefits and Features, Building Blocks, Types of Virtual Machines and their Implementations, Virtualization and Operating-System Components; Mobile OS - Android and iOS; Linux System - Design Principles, Kernel Modules, Process Management, Scheduling, Memory Management, Input-Output Management, File System, Inter-process Communication.
+

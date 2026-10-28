@@ -378,7 +378,7 @@ export const AddExamModal: React.FC<AddExamModalProps> = ({
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '6px' }}>
               Exam Type
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: '8px' }}>
               {[
                 { id: 'internal', label: 'Internal' },
                 { id: 'semester', label: 'Semester' },

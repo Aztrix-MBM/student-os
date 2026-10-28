@@ -9,3 +9,4 @@ Turing Machine Model - Definition and Representations - Language Acceptability -
 
 UNIT IV - COMPUTATIONAL COMPLEXITY
 Class P and NP - Polynomial Time Reductions - NP-Completeness - Cook's Theorem - Proving NP-Completeness - Travelling Salesperson Problem - Vertex Cover and Hamiltonian Cycle Problems.
+

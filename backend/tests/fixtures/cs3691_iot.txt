@@ -12,3 +12,4 @@ Interfacing Sensors - Temperature, Humidity, Ultrasonic, PIR Motion Sensors - GP
 
 MODULE 5 - IOT SECURITY AND EMBEDDED CASE STUDIES
 Security Challenges in IoT - Lightweight Cryptography - Smart Home Automation - Industrial IoT Case Studies - Healthcare Remote Monitoring Systems.
+

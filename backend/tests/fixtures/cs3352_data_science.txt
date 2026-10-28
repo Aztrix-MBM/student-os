@@ -12,3 +12,4 @@ Supervised Learning Overview - Linear and Logistic Regression - Decision Trees -
 
 UNIT V - DATA VISUALIZATION AND APPLICATIONS
 Principles of Data Visualization - Matplotlib and Seaborn Libraries - Visualizing Categorical and Continuous Data - Interactive Dashboards - Real-world Data Science Case Studies.
+

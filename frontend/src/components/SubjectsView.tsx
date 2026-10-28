@@ -114,9 +114,9 @@ export const SubjectsView: React.FC<SubjectsViewProps> = ({
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* Filter Pills matching reference panel 5 */}
-          <div className="clay-tab-bar">
+          <div className="clay-tab-bar" style={{ flexWrap: 'wrap' }}>
             <button
               onClick={() => setFilter('all')}
               className={`clay-tab-item ${filter === 'all' ? 'active' : ''}`}
@@ -190,7 +190,7 @@ export const SubjectsView: React.FC<SubjectsViewProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
             gap: '20px',
           }}
         >

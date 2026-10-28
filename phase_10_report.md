@@ -267,3 +267,4 @@ The full ordered migration chain in `backend/alembic/versions`:
 1. **Cloud Production Deployment:** Per user instruction, remote hosting (Vercel frontend, Render/Railway/Fly backend, and managed cloud PostgreSQL on Neon/Supabase) is deferred to a subsequent session. Local SQLite and local migrations are fully verified.
 2. **Third-Party Email SMTP Server:** Password reset via email is deferred to production infrastructure setup per `BACKLOG.md`.
 3. **Google OAuth Cloud Credentials:** `POST /api/auth/google` route is deferred until Google Cloud Console OAuth Client credentials are provided.
+

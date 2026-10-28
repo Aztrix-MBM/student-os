@@ -277,7 +277,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         )}
 
         {/* Tab Switcher Pills */}
-        <div className="clay-tab-bar" style={{ marginBottom: '22px' }}>
+        <div className="clay-tab-bar" style={{ marginBottom: '22px', flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => setActiveTab('profile')}

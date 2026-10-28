@@ -94,9 +94,9 @@ export const TasksView: React.FC<TasksViewProps> = ({
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {/* Filter Tabs matching reference panel 6 */}
-          <div className="clay-tab-bar">
+          <div className="clay-tab-bar" style={{ flexWrap: 'wrap' }}>
             <button
               onClick={() => setFilter('all')}
               className={`clay-tab-item ${filter === 'all' ? 'active' : ''}`}

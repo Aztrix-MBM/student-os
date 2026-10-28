@@ -59,3 +59,4 @@ def test_scanned_pdf_error_message():
     err = SyllabusExtractionError("This looks like a scanned PDF. Paste the text instead.", code="SCANNED_PDF_TEXT_REQUIRED")
     assert err.code == "SCANNED_PDF_TEXT_REQUIRED"
     assert "Paste the text instead" in err.message
+

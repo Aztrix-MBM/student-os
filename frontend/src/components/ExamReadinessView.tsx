@@ -635,7 +635,7 @@ export const ExamReadinessView: React.FC<ExamReadinessViewProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="clay-input"
-                  style={{ width: '100%', height: '36px', paddingLeft: '34px', fontSize: '13px' }}
+                  style={{ width: '100%', height: '36px', paddingLeft: '36px', paddingRight: '14px', fontSize: '13px' }}
                 />
               </div>
             </div>

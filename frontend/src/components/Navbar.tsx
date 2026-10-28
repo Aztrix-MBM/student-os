@@ -108,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             size={16}
             style={{
               position: 'absolute',
-              left: '12px',
+              left: '14px',
               top: '50%',
               transform: 'translateY(-50%)',
               color: 'var(--text-muted)',
@@ -122,6 +122,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             style={{
               borderRadius: '9999px',
               width: '100%',
+              paddingLeft: '38px',
+              paddingRight: '16px',
             }}
           />
         </div>

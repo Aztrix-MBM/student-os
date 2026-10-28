@@ -636,6 +636,8 @@ button, input, select, textarea {
   min-width: 0 !important;
   height: 40px;
   font-size: 13px;
+  padding-left: 38px !important;
+  padding-right: 16px !important;
 }
 
 @keyframes slideInLeft {

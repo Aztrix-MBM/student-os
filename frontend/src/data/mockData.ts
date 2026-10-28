@@ -1,10 +1,10 @@
 import { Subject, TaskItem, ScheduleItem, CalendarEvent, TopicItem, CareerPath, UserProfile } from '../types';
 
 export const initialUser: UserProfile = {
-  id: 'usr_rit_101',
-  name: 'Muthubalamurugan',
-  email: 'muthubalamurugan@gmail.com',
-  college: 'Rajalakshmi Institute of Technology (RIT)',
+  id: 'usr_demo_101',
+  name: 'Demo Student',
+  email: 'student@studentos.app',
+  college: 'College of Engineering',
   semester: 'Semester 4 — Computer Science & Engineering',
   dailyStudyMinutes: 180,
 };

@@ -130,7 +130,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSignUpSucc
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Muthubalamurugan"
+                placeholder="Enter your full name"
                 className="clay-input"
                 style={{ paddingLeft: '40px' }}
               />

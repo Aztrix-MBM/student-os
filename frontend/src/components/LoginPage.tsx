@@ -9,8 +9,8 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess }) => {
-  const [email, setEmail] = useState('muthubalamurugan@gmail.com');
-  const [password, setPassword] = useState('student123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -21,7 +21,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess
     setErrorMessage(null);
     setIsSubmitting(true);
 
-    const result = await loginUser(email, password);
+    const result = await loginUser(email.trim(), password);
     setIsSubmitting(false);
 
     if (result.ok && result.user) {
@@ -31,17 +31,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess
     }
   };
 
-  // Quick helper for demo user
+  // Quick helper for isolated demo student account
   const handleQuickDemoLogin = async () => {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    // Try logging in first
-    let result = await loginUser('muthubalamurugan@gmail.com', 'student123');
+    const demoEmail = 'demo@studentos.app';
+    const demoPassword = 'Password123!';
+
+    // Try logging in as demo account
+    let result = await loginUser(demoEmail, demoPassword);
     if (!result.ok) {
       // If not yet registered in fresh DB, register automatically
-      await registerUser('Muthubalamurugan', 'muthubalamurugan@gmail.com', 'student123', 180);
-      result = await loginUser('muthubalamurugan@gmail.com', 'student123');
+      await registerUser('Demo Student', demoEmail, demoPassword, 180);
+      result = await loginUser(demoEmail, demoPassword);
     }
 
     setIsSubmitting(false);
@@ -213,14 +216,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onNavigate, onLoginSuccess
           <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-subtle)' }} />
         </div>
 
-        {/* Quick Demo Login button */}
+        {/* Demo Guest Login button (isolated sample account) */}
         <button
           onClick={handleQuickDemoLogin}
           disabled={isSubmitting}
           className="clay-btn clay-btn-light"
           style={{ width: '100%', height: '44px', fontSize: '13px', fontWeight: 700, marginBottom: '10px' }}
         >
-          Quick Demo Login (Muthubalamurugan)
+          Explore Demo Student Account
         </button>
 
         <p style={{ marginTop: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>

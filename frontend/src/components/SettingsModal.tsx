@@ -326,7 +326,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onChange={(e) => setName(e.target.value)}
                   required
                   className="clay-input"
-                  placeholder="e.g. Muthubalamurugan"
+                  placeholder="e.g. Alex Morgan"
                   style={{ width: '100%', height: '42px', fontSize: '14px' }}
                 />
               </div>

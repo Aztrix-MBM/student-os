@@ -12,7 +12,7 @@ import sqlite3
 from sqlalchemy import event, Engine
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    settings.sqlalchemy_database_url,
     connect_args=connect_args,
     pool_pre_ping=True
 )

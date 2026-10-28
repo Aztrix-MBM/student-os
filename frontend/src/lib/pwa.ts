@@ -3,6 +3,16 @@ import { subscribePush, unsubscribePush } from './api';
 
 export function registerServiceWorker(): void {
   if ('serviceWorker' in navigator) {
+    // In local dev mode, unregister lingering service workers to prevent stale cache / blank screen
+    if (import.meta.env.DEV) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister();
+        }
+      });
+      return;
+    }
+
     window.addEventListener('load', () => {
       navigator.serviceWorker
         .register('/sw.js')

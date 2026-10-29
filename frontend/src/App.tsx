@@ -49,14 +49,6 @@ export const App: React.FC = () => {
 
   // Auth User State (managed via real API)
   const [currentUser, setCurrentUser] = useState<UserAuthResponse | null>(null);
-  // Instant rendering: Only block with full-screen checking if a stored token exists
-  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(() => {
-    try {
-      return Boolean(localStorage.getItem('student_os_jwt'));
-    } catch {
-      return false;
-    }
-  });
 
   // Core App State (Isolated strictly per authenticated student)
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -224,17 +216,16 @@ export const App: React.FC = () => {
     // Proactively warm up backend on free tier in background so login/register is instant
     fetch(`${API_BASE_URL}/api/health`, { method: 'GET' }).catch(() => {});
 
-    // If no session token exists, skip network wait entirely and show login immediately
+    // If no session token exists, stay on login page immediately
     const token = localStorage.getItem('student_os_jwt');
     if (!token) {
-      setIsAuthChecking(false);
       resetUserState();
       return;
     }
 
     const checkSession = async () => {
       try {
-        const userRes = await getMe();
+        const userRes = await getMe(2500);
         if (isMounted) {
           if (userRes) {
             await loadUserData(userRes);
@@ -244,8 +235,6 @@ export const App: React.FC = () => {
         }
       } catch {
         if (isMounted) resetUserState();
-      } finally {
-        if (isMounted) setIsAuthChecking(false);
       }
     };
     checkSession();
@@ -539,21 +528,6 @@ export const App: React.FC = () => {
     semester: profileOverrides.semester || 'Current Semester',
     dailyStudyMinutes: currentUser?.daily_study_minutes || profileOverrides.dailyStudyMinutes || 180,
   };
-
-  if (isAuthChecking) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="clay-card-flat" style={{ padding: '24px 36px', borderRadius: '24px', textAlign: 'center' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Loading Student OS...
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Checking secure session
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // If not authenticated and not explicitly on signup, display login
   const isAuthView = currentView === 'login' || currentView === 'signup';

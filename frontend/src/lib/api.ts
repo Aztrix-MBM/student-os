@@ -157,7 +157,15 @@ export async function loginUser(
 /**
  * Fetch authenticated user details from /api/me using httpOnly cookie + bearer token fallback.
  */
-export async function getMe(): Promise<UserAuthResponse | null> {
+export async function getMe(timeoutMs: number = 3500): Promise<UserAuthResponse | null> {
+  const token = localStorage.getItem('student_os_jwt');
+  if (!token) {
+    return null;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(`${API_BASE_URL}/api/me`, {
       method: 'GET',
@@ -165,7 +173,10 @@ export async function getMe(): Promise<UserAuthResponse | null> {
         'Accept': 'application/json',
       }),
       credentials: 'include',
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       return null;
@@ -173,7 +184,8 @@ export async function getMe(): Promise<UserAuthResponse | null> {
 
     const user: UserAuthResponse = await response.json();
     return user;
-  } catch (err) {
+  } catch {
+    clearTimeout(timeoutId);
     return null;
   }
 }

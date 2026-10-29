@@ -24,6 +24,7 @@ import { MobileDrawer } from './components/MobileDrawer';
 import { PrivacyModal } from './components/PrivacyModal';
 import { ExamPassModal } from './components/ExamPassModal';
 import {
+  API_BASE_URL,
   getMe,
   logoutUser,
   UserAuthResponse,
@@ -48,7 +49,14 @@ export const App: React.FC = () => {
 
   // Auth User State (managed via real API)
   const [currentUser, setCurrentUser] = useState<UserAuthResponse | null>(null);
-  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+  // Instant rendering: Only block with full-screen checking if a stored token exists
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(() => {
+    try {
+      return Boolean(localStorage.getItem('student_os_jwt'));
+    } catch {
+      return false;
+    }
+  });
 
   // Core App State (Isolated strictly per authenticated student)
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -212,6 +220,18 @@ export const App: React.FC = () => {
   // Check auth session on mount (/api/me) & load real student data
   useEffect(() => {
     let isMounted = true;
+
+    // Proactively warm up backend on free tier in background so login/register is instant
+    fetch(`${API_BASE_URL}/api/health`, { method: 'GET' }).catch(() => {});
+
+    // If no session token exists, skip network wait entirely and show login immediately
+    const token = localStorage.getItem('student_os_jwt');
+    if (!token) {
+      setIsAuthChecking(false);
+      resetUserState();
+      return;
+    }
+
     const checkSession = async () => {
       try {
         const userRes = await getMe();

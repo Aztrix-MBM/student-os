@@ -1,9 +1,12 @@
 from typing import List
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import select, desc
 from app.database import get_db
 from app.models.user import User
 from app.models.academic import Subject, Unit, Topic, Exam
+from app.models.learning import TopicReview
 from app.schemas.academic import (
     SubjectCreate,
     SubjectUpdate,
@@ -18,6 +21,43 @@ from app.security.deps import get_current_user
 from app.analytics import log_event
 
 router = APIRouter(prefix="/api/subjects", tags=["Subjects"])
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _build_topic_response_with_review(
+    t: Topic, latest_review: TopicReview | None
+) -> TopicResponse:
+    """Build a TopicResponse enriched with the latest review snapshot."""
+    self_level = None
+    days_since_review = None
+    stability_days = None
+
+    if latest_review:
+        self_level = latest_review.self_level
+        r_time = latest_review.reviewed_at
+        if r_time.tzinfo is None:
+            r_time = r_time.replace(tzinfo=timezone.utc)
+        days_since_review = round(
+            max(0.0, (_utc_now() - r_time).total_seconds() / 86400.0), 2
+        )
+        stability_days = latest_review.stability_days
+
+    return TopicResponse(
+        id=t.id,
+        subject_id=t.subject_id,
+        unit_id=t.unit_id,
+        name=t.name,
+        difficulty=t.difficulty,
+        importance=t.importance,
+        order_no=t.order_no,
+        created_at=t.created_at,
+        self_level=self_level,
+        days_since_review=days_since_review,
+        stability_days=stability_days,
+    )
 
 
 def _map_subject_response(sub: Subject) -> SubjectResponse:
@@ -78,7 +118,7 @@ def get_subject_detail(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Retrieve single subject with its units and topics. Returns 404 if not found or not owned."""
+    """Retrieve single subject with its units and topics (enriched with latest review data). Returns 404 if not found or not owned."""
     subject = (
         db.query(Subject)
         .filter(Subject.id == subject_id, Subject.user_id == current_user.id)
@@ -90,7 +130,27 @@ def get_subject_detail(
             detail="Subject not found",
         )
 
-    # Convert units with nested topics
+    # Bulk-fetch latest reviews for all topics in this subject to avoid N+1 queries
+    topic_ids = [t.id for t in subject.topics]
+    latest_reviews: dict = {}
+    if topic_ids:
+        all_reviews = (
+            db.execute(
+                select(TopicReview)
+                .where(
+                    TopicReview.topic_id.in_(topic_ids),
+                    TopicReview.user_id == current_user.id,
+                )
+                .order_by(desc(TopicReview.reviewed_at))
+            )
+            .scalars()
+            .all()
+        )
+        for rev in all_reviews:
+            if rev.topic_id not in latest_reviews:
+                latest_reviews[rev.topic_id] = rev
+
+    # Convert units with nested topics (enriched with review snapshots)
     unit_responses = []
     for u in subject.units:
         unit_responses.append(
@@ -101,7 +161,10 @@ def get_subject_detail(
                 order_no=u.order_no,
                 exam_weight=u.exam_weight,
                 created_at=u.created_at,
-                topics=[TopicResponse.model_validate(t) for t in u.topics],
+                topics=[
+                    _build_topic_response_with_review(t, latest_reviews.get(t.id))
+                    for t in u.topics
+                ],
             )
         )
 
@@ -118,7 +181,10 @@ def get_subject_detail(
         topics_count=len(subject.topics),
         exams_count=len(subject.exams),
         units=unit_responses,
-        topics=[TopicResponse.model_validate(t) for t in subject.topics],
+        topics=[
+            _build_topic_response_with_review(t, latest_reviews.get(t.id))
+            for t in subject.topics
+        ],
     )
 
 

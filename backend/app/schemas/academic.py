@@ -20,6 +20,10 @@ class TopicResponse(TopicBase):
     id: str
     subject_id: str
     created_at: datetime
+    # Latest review snapshot — populated by the subjects router when user is authenticated
+    self_level: Optional[str] = None          # 'strong' | 'okay' | 'weak' | None (unrated)
+    days_since_review: Optional[float] = None  # None means never reviewed
+    stability_days: Optional[float] = None     # SRS stability; None → use default 2.0
 
     model_config = ConfigDict(from_attributes=True)
 

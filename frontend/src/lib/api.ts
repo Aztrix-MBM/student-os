@@ -347,6 +347,10 @@ export interface ApiTopicDetail {
   importance: number;
   difficulty: number;
   order_no: number;
+  // Latest review snapshot (null if never reviewed)
+  self_level?: 'strong' | 'okay' | 'weak' | null;
+  days_since_review?: number | null;
+  stability_days?: number | null;
 }
 
 export interface ApiSubjectDetail extends ApiSubject {

@@ -28,3 +28,4 @@ def downgrade() -> None:
     """Remove college and semester columns from users table."""
     op.drop_column('users', 'semester')
     op.drop_column('users', 'college')
+

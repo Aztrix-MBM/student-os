@@ -42,6 +42,61 @@ import {
   ApiExam,
 } from './lib/api';
 
+// Local storage review helpers for offline-first & refresh persistence
+interface StoredTopicReview {
+  level: TopicLevel;
+  lastReviewedDaysAgo: number;
+  stabilityDays: number;
+  reviewedAt: number; // ms timestamp
+}
+
+const getStoredTopicReviews = (userId?: string): Record<string, StoredTopicReview> => {
+  try {
+    if (userId) {
+      const userRaw = localStorage.getItem(`student_os_topic_reviews_${userId}`);
+      if (userRaw) return JSON.parse(userRaw);
+    }
+    const defaultRaw = localStorage.getItem('student_os_topic_reviews_default');
+    return defaultRaw ? JSON.parse(defaultRaw) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveStoredTopicReviews = (reviews: Record<string, StoredTopicReview>, userId?: string) => {
+  try {
+    const raw = JSON.stringify(reviews);
+    if (userId) {
+      localStorage.setItem(`student_os_topic_reviews_${userId}`, raw);
+    }
+    localStorage.setItem('student_os_topic_reviews_default', raw);
+  } catch {
+    // ignore quota
+  }
+};
+
+const applyStoredReviewsToTopics = (
+  topics: TopicItem[],
+  userId?: string
+): TopicItem[] => {
+  const stored = getStoredTopicReviews(userId);
+  if (!stored || Object.keys(stored).length === 0) return topics;
+
+  const now = Date.now();
+  return topics.map((t) => {
+    const record = stored[t.id];
+    if (!record) return t;
+
+    const daysElapsed = Math.max(0, Math.floor((now - record.reviewedAt) / 86400000));
+    return {
+      ...t,
+      level: record.level,
+      lastReviewedDaysAgo: daysElapsed,
+      stabilityDays: record.stabilityDays,
+    };
+  });
+};
+
 export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ScreenView>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
@@ -54,7 +109,9 @@ export const App: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
-  const [topicsDS, setTopicsDS] = useState<TopicItem[]>([]);
+  const [topicsDS, setTopicsDS] = useState<TopicItem[]>(() =>
+    applyStoredReviewsToTopics(initialTopicsDS)
+  );
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
   const [exams, setExams] = useState<ApiExam[]>([]);
   const [selectedExamId, setSelectedExamId] = useState<string>('all');
@@ -98,7 +155,7 @@ export const App: React.FC = () => {
     setSubjects([]);
     setTasks([]);
     setSchedule([]);
-    setTopicsDS([]);
+    setTopicsDS(applyStoredReviewsToTopics(initialTopicsDS));
     setSelectedSubjectId('');
     setProfileOverrides({
       college: 'Engineering College',
@@ -118,8 +175,28 @@ export const App: React.FC = () => {
         const detail = await fetchSubjectDetails(targetId);
         if (detail && detail.units && detail.units.length > 0) {
           const mappedTopics: TopicItem[] = [];
+          const stored = getStoredTopicReviews(currentUser?.id);
+          const now = Date.now();
+
           detail.units.forEach((u) => {
             (u.topics || []).forEach((t) => {
+              // 1. First priority: DB review snapshot if reviewed
+              let level: TopicItem['level'] = 'unrated';
+              let lastReviewedDaysAgo = 99;
+              let stabilityDays = 2.0;
+
+              if (t.self_level === 'strong' || t.self_level === 'okay' || t.self_level === 'weak') {
+                level = t.self_level;
+                lastReviewedDaysAgo = t.days_since_review != null ? Math.round(t.days_since_review) : 0;
+                stabilityDays = t.stability_days ?? 2.0;
+              } else if (stored[t.id]) {
+                // 2. Second priority: Local storage override
+                const rec = stored[t.id];
+                level = rec.level;
+                lastReviewedDaysAgo = Math.max(0, Math.floor((now - rec.reviewedAt) / 86400000));
+                stabilityDays = rec.stabilityDays;
+              }
+
               mappedTopics.push({
                 id: t.id,
                 unitId: u.id,
@@ -127,9 +204,9 @@ export const App: React.FC = () => {
                 name: t.name,
                 importance: t.importance ?? 0.8,
                 difficulty: t.difficulty ?? 3,
-                level: 'unrated',
-                lastReviewedDaysAgo: 99,
-                stabilityDays: 2.0,
+                level,
+                lastReviewedDaysAgo,
+                stabilityDays,
               });
             });
           });
@@ -147,7 +224,8 @@ export const App: React.FC = () => {
     // Fallback: If Data Structures or empty, provide curriculum topics
     const subObj = list.find((s) => s.id === targetId);
     if (!subObj || subObj.name.toLowerCase().includes('data structure')) {
-      setTopicsDS(initialTopicsDS);
+      const enriched = applyStoredReviewsToTopics(initialTopicsDS, currentUser?.id);
+      setTopicsDS(enriched);
     } else {
       setTopicsDS([]);
     }
@@ -205,7 +283,7 @@ export const App: React.FC = () => {
       setSubjects([]);
       setTasks([]);
       setSchedule([]);
-      setTopicsDS(initialTopicsDS);
+      setTopicsDS(applyStoredReviewsToTopics(initialTopicsDS, user.id));
     }
   };
 
@@ -338,24 +416,37 @@ export const App: React.FC = () => {
   };
 
   const handleRateTopic = async (topicId: string, level: TopicLevel) => {
+    let computedStability = level === 'strong' ? 21 : level === 'okay' ? 7 : 2;
+
     setTopicsDS((prev) =>
-      prev.map((t) =>
-        t.id === topicId
-          ? {
-              ...t,
-              level,
-              lastReviewedDaysAgo: 0, // Reset: Reviewed today!
-              stabilityDays:
-                level === 'strong'
-                  ? Math.min(21, t.stabilityDays * 2.5)
-                  : level === 'okay'
-                  ? t.stabilityDays * 1.5
-                  : Math.max(1.0, t.stabilityDays * 0.5),
-            }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id !== topicId) return t;
+        computedStability =
+          level === 'strong'
+            ? Math.min(21, t.stabilityDays * 2.5)
+            : level === 'okay'
+            ? t.stabilityDays * 1.5
+            : Math.max(1.0, t.stabilityDays * 0.5);
+        return {
+          ...t,
+          level,
+          lastReviewedDaysAgo: 0, // Reset: Reviewed today!
+          stabilityDays: computedStability,
+        };
+      })
     );
 
+    // 1. Immediately persist to localStorage so ratings strictly survive refresh
+    const currentReviews = getStoredTopicReviews(currentUser?.id);
+    currentReviews[topicId] = {
+      level,
+      lastReviewedDaysAgo: 0,
+      stabilityDays: computedStability,
+      reviewedAt: Date.now(),
+    };
+    saveStoredTopicReviews(currentReviews, currentUser?.id);
+
+    // 2. Persist to DB if authenticated and topic exists in backend
     if (currentUser && level !== 'unrated') {
       const ratingMap: Record<'strong' | 'okay' | 'weak', 'easy' | 'good' | 'fail'> = {
         strong: 'easy',
@@ -366,20 +457,49 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleRateAllTopics = (level: TopicLevel) => {
-    setTopicsDS((prev) =>
-      prev.map((t) => ({
+  const handleRateAllTopics = async (level: TopicLevel) => {
+    const defaultStability =
+      level === 'strong'
+        ? 21
+        : level === 'okay'
+        ? 7
+        : 2;
+
+    let targetTopicList: TopicItem[] = [];
+    setTopicsDS((prev) => {
+      targetTopicList = prev.map((t) => ({
         ...t,
         level,
         lastReviewedDaysAgo: 0,
-        stabilityDays:
-          level === 'strong'
-            ? 21
-            : level === 'okay'
-            ? 7
-            : 2,
-      }))
-    );
+        stabilityDays: defaultStability,
+      }));
+      return targetTopicList;
+    });
+
+    // 1. Immediately persist all to localStorage so ratings strictly survive refresh
+    const currentReviews = getStoredTopicReviews(currentUser?.id);
+    const now = Date.now();
+    targetTopicList.forEach((t) => {
+      currentReviews[t.id] = {
+        level,
+        lastReviewedDaysAgo: 0,
+        stabilityDays: defaultStability,
+        reviewedAt: now,
+      };
+    });
+    saveStoredTopicReviews(currentReviews, currentUser?.id);
+
+    // 2. Persist each topic review to DB so ratings survive refresh
+    if (currentUser && level !== 'unrated') {
+      const ratingMap: Record<'strong' | 'okay' | 'weak', 'easy' | 'good' | 'fail'> = {
+        strong: 'easy',
+        okay: 'good',
+        weak: 'fail',
+      };
+      for (const t of targetTopicList) {
+        await submitTopicReview(t.id, ratingMap[level], level);
+      }
+    }
   };
 
   const handleAddExtractedSubject = async (

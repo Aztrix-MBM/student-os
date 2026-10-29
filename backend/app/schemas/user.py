@@ -16,6 +16,8 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=100)
     daily_study_minutes: Optional[int] = Field(default=None, ge=30, le=720)
+    college: Optional[str] = Field(default=None, max_length=200)
+    semester: Optional[str] = Field(default=None, max_length=200)
 
 
 class UserResponse(UserBase):
@@ -23,6 +25,8 @@ class UserResponse(UserBase):
     auth_provider: str
     is_pro: bool = False
     pro_until: datetime | None = None
+    college: Optional[str] = None
+    semester: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

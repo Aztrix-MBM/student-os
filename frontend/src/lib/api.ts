@@ -13,6 +13,8 @@ export interface UserAuthResponse {
   email: string;
   daily_study_minutes: number;
   auth_provider: string;
+  college?: string | null;
+  semester?: string | null;
   is_pro?: boolean;
   pro_until?: string | null;
   created_at: string;
@@ -409,6 +411,8 @@ export async function createExam(data: {
 export async function updateUserProfile(data: {
   name?: string;
   daily_study_minutes?: number;
+  college?: string;
+  semester?: string;
 }): Promise<UserAuthResponse | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/me`, {

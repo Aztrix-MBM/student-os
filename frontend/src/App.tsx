@@ -160,8 +160,8 @@ export const App: React.FC = () => {
     setIsProUser(Boolean(user.is_pro));
     setProfileOverrides({
       name: user.name,
-      college: 'Engineering College',
-      semester: 'Current Semester',
+      college: user.college || 'Engineering College',
+      semester: user.semester || 'Current Semester',
       dailyStudyMinutes: user.daily_study_minutes || 180,
       studyReminders: true,
     });
@@ -474,6 +474,8 @@ export const App: React.FC = () => {
         const savedUser = await updateUserProfile({
           name: updated.name,
           daily_study_minutes: updated.dailyStudyMinutes,
+          college: updated.college,
+          semester: updated.semester,
         });
         if (savedUser) {
           setCurrentUser(savedUser);
@@ -484,6 +486,8 @@ export const App: React.FC = () => {
                   ...prev,
                   name: updated.name,
                   daily_study_minutes: updated.dailyStudyMinutes,
+                  college: updated.college,
+                  semester: updated.semester,
                 }
               : null
           );

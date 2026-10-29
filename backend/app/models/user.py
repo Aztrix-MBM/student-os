@@ -21,6 +21,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=True)
     auth_provider = Column(String(50), nullable=False, default="local")
     daily_study_minutes = Column(Integer, nullable=False, default=120)
+    college = Column(String(200), nullable=True)
+    semester = Column(String(200), nullable=True)
     pro_until = Column(DateTime(timezone=True), nullable=True)
     syllabus_imports_count = Column(Integer, nullable=False, default=0)
 

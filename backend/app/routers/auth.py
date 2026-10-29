@@ -149,12 +149,16 @@ def update_authenticated_user(
     db: Session = Depends(get_db),
 ):
     """
-    Update profile fields (name, daily_study_minutes) for the authenticated student.
+    Update profile fields (name, daily_study_minutes, college, semester) for the authenticated student.
     """
     if payload.name is not None:
         current_user.name = payload.name.strip()
     if payload.daily_study_minutes is not None:
         current_user.daily_study_minutes = payload.daily_study_minutes
+    if payload.college is not None:
+        current_user.college = payload.college.strip()
+    if payload.semester is not None:
+        current_user.semester = payload.semester.strip()
 
     db.commit()
     db.refresh(current_user)

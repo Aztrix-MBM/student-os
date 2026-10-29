@@ -249,6 +249,8 @@ export interface ApiSubject {
   units_count: number;
   topics_count: number;
   exams_count: number;
+  progress?: number;
+  completed_topics?: number;
 }
 
 export interface ApiExam {

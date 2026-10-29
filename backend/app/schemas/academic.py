@@ -75,6 +75,8 @@ class SubjectResponse(SubjectBase):
     units_count: int = 0
     topics_count: int = 0
     exams_count: int = 0
+    progress: int = 0
+    completed_topics: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 

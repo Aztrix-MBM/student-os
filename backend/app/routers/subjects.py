@@ -60,7 +60,28 @@ def _build_topic_response_with_review(
     )
 
 
-def _map_subject_response(sub: Subject) -> SubjectResponse:
+def _map_subject_response(
+    sub: Subject, db: Session | None = None, user_id: str | None = None
+) -> SubjectResponse:
+    progress = 0
+    completed_topics = 0
+    total_topics = len(sub.topics)
+
+    if db and user_id and total_topics > 0:
+        topic_ids = [t.id for t in sub.topics]
+        reviewed_topic_ids = set(
+            db.scalars(
+                select(TopicReview.topic_id)
+                .where(
+                    TopicReview.topic_id.in_(topic_ids),
+                    TopicReview.user_id == user_id,
+                )
+                .distinct()
+            ).all()
+        )
+        completed_topics = len(reviewed_topic_ids)
+        progress = round((completed_topics / total_topics) * 100)
+
     return SubjectResponse(
         id=sub.id,
         user_id=sub.user_id,
@@ -71,8 +92,10 @@ def _map_subject_response(sub: Subject) -> SubjectResponse:
         created_at=sub.created_at,
         updated_at=sub.updated_at,
         units_count=len(sub.units),
-        topics_count=len(sub.topics),
+        topics_count=total_topics,
         exams_count=len(sub.exams),
+        progress=progress,
+        completed_topics=completed_topics,
     )
 
 
@@ -88,7 +111,7 @@ def get_user_subjects(
         .order_by(Subject.created_at.desc())
         .all()
     )
-    return [_map_subject_response(s) for s in subjects]
+    return [_map_subject_response(s, db=db, user_id=current_user.id) for s in subjects]
 
 
 @router.post("", response_model=SubjectResponse, status_code=status.HTTP_201_CREATED)
@@ -109,7 +132,7 @@ def create_subject(
     db.commit()
     db.refresh(subject)
     log_event(db, "subject_created", user_id=current_user.id, properties={"subject_id": subject.id, "code": subject.code})
-    return _map_subject_response(subject)
+    return _map_subject_response(subject, db=db, user_id=current_user.id)
 
 
 @router.get("/{subject_id}", response_model=SubjectDetailResponse)
@@ -168,6 +191,10 @@ def get_subject_detail(
             )
         )
 
+    completed_topics = len(latest_reviews)
+    total_topics = len(subject.topics)
+    progress = round((completed_topics / total_topics) * 100) if total_topics > 0 else 0
+
     return SubjectDetailResponse(
         id=subject.id,
         user_id=subject.user_id,
@@ -178,8 +205,10 @@ def get_subject_detail(
         created_at=subject.created_at,
         updated_at=subject.updated_at,
         units_count=len(subject.units),
-        topics_count=len(subject.topics),
+        topics_count=total_topics,
         exams_count=len(subject.exams),
+        progress=progress,
+        completed_topics=completed_topics,
         units=unit_responses,
         topics=[
             _build_topic_response_with_review(t, latest_reviews.get(t.id))
@@ -218,7 +247,7 @@ def update_subject(
 
     db.commit()
     db.refresh(subject)
-    return _map_subject_response(subject)
+    return _map_subject_response(subject, db=db, user_id=current_user.id)
 
 
 @router.delete("/{subject_id}", status_code=status.HTTP_200_OK)

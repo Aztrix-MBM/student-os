@@ -41,6 +41,7 @@ import {
   fetchExams,
   ApiExam,
 } from './lib/api';
+import { calculateExamReadiness } from './engine/readiness';
 
 // Local storage review helpers for offline-first & refresh persistence
 interface StoredTopicReview {
@@ -94,6 +95,35 @@ const applyStoredReviewsToTopics = (
       lastReviewedDaysAgo: daysElapsed,
       stabilityDays: record.stabilityDays,
     };
+  });
+};
+
+// Helper to update a subject's progress and topic counts in the subjects array
+const updateSubjectProgressInList = (
+  currentSubs: Subject[],
+  targetSubjectId: string,
+  topics: TopicItem[]
+): Subject[] => {
+  if (!topics || topics.length === 0) return currentSubs;
+  const readiness = calculateExamReadiness(topics);
+  const completed = topics.filter((t) => t.level === 'strong' || t.level === 'okay').length;
+
+  return currentSubs.map((s) => {
+    const isMatch =
+      s.id === targetSubjectId ||
+      (!targetSubjectId && s.name.toLowerCase().includes('data structure')) ||
+      (s.name.toLowerCase().includes('data structure') &&
+        topics.some((t) => t.unitName && t.unitName.toLowerCase().includes('linear')));
+
+    if (isMatch) {
+      return {
+        ...s,
+        progress: readiness.readinessPct,
+        completedTopics: completed,
+        totalTopics: topics.length,
+      };
+    }
+    return s;
   });
 };
 
@@ -213,6 +243,7 @@ export const App: React.FC = () => {
           if (mappedTopics.length > 0) {
             setTopicsDS(mappedTopics);
             setSelectedSubjectId(targetId);
+            setSubjects((prev) => updateSubjectProgressInList(prev, targetId, mappedTopics));
             return;
           }
         }
@@ -226,6 +257,7 @@ export const App: React.FC = () => {
     if (!subObj || subObj.name.toLowerCase().includes('data structure')) {
       const enriched = applyStoredReviewsToTopics(initialTopicsDS, currentUser?.id);
       setTopicsDS(enriched);
+      setSubjects((prev) => updateSubjectProgressInList(prev, targetId, enriched));
     } else {
       setTopicsDS([]);
     }
@@ -247,17 +279,32 @@ export const App: React.FC = () => {
     try {
       const [apiSubs, apiTasks, apiExams] = await Promise.all([fetchSubjects(), fetchTasks(), fetchExams()]);
       setExams(apiExams);
-      const formattedSubs: Subject[] = apiSubs.map((s) => ({
-        id: s.id,
-        name: s.name,
-        code: s.code,
-        progress: 0,
-        completedTopics: 0,
-        totalTopics: s.topics_count || 15,
-        semester: s.semester || 'current',
-        iconType: 'chip',
-        colorTheme: (s.color_theme as any) || 'sky',
-      }));
+
+      // Pre-compute readiness for fallback Data Structures topics using stored reviews
+      const initialEnrichedTopics = applyStoredReviewsToTopics(initialTopicsDS, user.id);
+      const dsReadiness = calculateExamReadiness(initialEnrichedTopics);
+      const dsCompleted = initialEnrichedTopics.filter(
+        (t) => t.level === 'strong' || t.level === 'okay'
+      ).length;
+
+      const formattedSubs: Subject[] = apiSubs.map((s) => {
+        const isDS = s.name.toLowerCase().includes('data structure');
+        const progress = isDS ? dsReadiness.readinessPct : (s.progress ?? 0);
+        const completedTopics = isDS ? dsCompleted : (s.completed_topics ?? 0);
+        const totalTopics = isDS ? initialEnrichedTopics.length : (s.topics_count || 15);
+
+        return {
+          id: s.id,
+          name: s.name,
+          code: s.code,
+          progress,
+          completedTopics,
+          totalTopics,
+          semester: s.semester || 'current',
+          iconType: 'chip',
+          colorTheme: (s.color_theme as any) || 'sky',
+        };
+      });
       setSubjects(formattedSubs);
 
       setTasks(
@@ -417,9 +464,10 @@ export const App: React.FC = () => {
 
   const handleRateTopic = async (topicId: string, level: TopicLevel) => {
     let computedStability = level === 'strong' ? 21 : level === 'okay' ? 7 : 2;
+    let updatedTopics: TopicItem[] = [];
 
-    setTopicsDS((prev) =>
-      prev.map((t) => {
+    setTopicsDS((prev) => {
+      updatedTopics = prev.map((t) => {
         if (t.id !== topicId) return t;
         computedStability =
           level === 'strong'
@@ -433,8 +481,12 @@ export const App: React.FC = () => {
           lastReviewedDaysAgo: 0, // Reset: Reviewed today!
           stabilityDays: computedStability,
         };
-      })
-    );
+      });
+      return updatedTopics;
+    });
+
+    // Update matching subject card progress in real-time
+    setSubjects((prev) => updateSubjectProgressInList(prev, selectedSubjectId, updatedTopics));
 
     // 1. Immediately persist to localStorage so ratings strictly survive refresh
     const currentReviews = getStoredTopicReviews(currentUser?.id);
@@ -475,6 +527,9 @@ export const App: React.FC = () => {
       }));
       return targetTopicList;
     });
+
+    // Update matching subject card progress in real-time
+    setSubjects((prev) => updateSubjectProgressInList(prev, selectedSubjectId, targetTopicList));
 
     // 1. Immediately persist all to localStorage so ratings strictly survive refresh
     const currentReviews = getStoredTopicReviews(currentUser?.id);
@@ -735,7 +790,11 @@ export const App: React.FC = () => {
                 subjects={subjects}
                 onOpenAddSubject={() => setIsAddSubjectOpen(true)}
                 onNavigate={setCurrentView}
-                onSelectSubjectForReadiness={(subId) => setSelectedSubjectId(subId)}
+                onSelectSubjectForReadiness={(subId) => {
+                  setSelectedSubjectId(subId);
+                  setSelectedExamId('all');
+                  loadSubjectTopics(subId);
+                }}
               />
             )}
 
